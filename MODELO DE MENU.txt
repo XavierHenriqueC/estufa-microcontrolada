@@ -1,0 +1,163 @@
+      if(!input(pin_c0)&&verificateclaC0==0)                       //AO APERTAR A TECLA SETA PRA CIMA, APARECE NO DISPLAY OS VALORES DE REGISTRO MAXIMO E MINIMO
+      {
+        teclapressionadaMenu++;
+        controle=0;
+      }
+      
+      if(!input(pin_c0))
+      {
+        verificateclaC0=1;
+      } else verificateclac0=0;
+      
+      if(teclapressionadaMenu==1)
+      {
+       controledestring=5;
+       lcd_escreve ('\f');
+      }
+      if(teclapressionadaMenu==2)
+      {
+       controledestring=6;
+       lcd_escreve ('\f');
+      }
+      if(teclapressionadaMenu==3)
+      {
+       controledestring=7;
+       lcd_escreve ('\f');
+      }
+      if(teclapressionadaMenu==4)
+      {
+       controledestring=8;
+       lcd_escreve ('\f');
+      }
+      
+      if(controledestring==5)
+      {
+        lcd_pos_xy(1,1);
+        printf (lcd_escreve, "Aquecimento"); 
+        if(Mododoaquecedor==0)
+        {
+        lcd_pos_xy(1,2);
+        printf (lcd_escreve, "Modo: Automatico");
+        }
+        if(Mododoaquecedor==1)
+        {
+        lcd_pos_xy(1,2);
+        printf (lcd_escreve, "Modo: Ligado    ");
+        }
+        controle++;
+      }
+      if(controledestring==6)
+      {
+        lcd_pos_xy(1,1);
+        printf (lcd_escreve, "Resfriamento"); 
+        if(Mododoresfriador==0)
+        {
+        lcd_pos_xy(1,2);
+        printf (lcd_escreve, "Modo: Automatico");
+        }
+        if(Mododoresfriador==1)
+        {
+        lcd_pos_xy(1,2);
+        printf (lcd_escreve, "Modo: Ligado    ");
+        }
+        controle++;
+      }
+      if(controledestring==7)
+      {
+        lcd_pos_xy(1,1);
+        printf (lcd_escreve, "Irrigacao"); 
+        if(Mododabomba==0)
+        {
+        lcd_pos_xy(1,2);
+        printf (lcd_escreve, "Modo: Automatico");
+        }
+        if(Mododabomba==1)
+        {
+        lcd_pos_xy(1,2);
+        printf (lcd_escreve, "Modo: Ligado    ");
+        }
+        controle++;
+      }
+      if(controledestring==8)
+      { 
+        lcd_pos_xy(1,1);
+        printf (lcd_escreve, "Umidificacao");
+        if(Mododoumidificador==0)
+        {
+        lcd_pos_xy(1,2);
+        printf (lcd_escreve, "Modo: Automatico");
+        }
+        if(Mododoumidificador==1)
+        {
+        lcd_pos_xy(1,2);
+        printf (lcd_escreve, "Modo: Ligado    ");
+        }
+        controle++;
+        }
+        
+
+      if(Mododoaquecedor==1)
+      {
+       output_high(pin_D2);
+      }
+      
+      if(mododoaquecedor==0)
+      {
+       output_low(pin_D2);
+      }
+      
+      if(Mododoresfriador==1)
+      {
+       output_high(pin_D3);
+      }
+      
+      if(mododoresfriador==0)
+      {
+       output_low(pin_D3);
+      }
+      
+      if(Mododabomba==1)
+      {
+       output_high(pin_D4);
+      }
+      
+      if(mododabomba==0&&tempo_off>0)
+      {
+       output_low(pin_D4);
+      }
+      if(mododabomba==0&&tempo_on==0)
+      {
+       output_low(pin_D4);
+      }
+
+      if(Mododoumidificador==1)
+      {
+       output_high(pin_D5);
+      }
+      
+      if(mododoresfriador==0)
+      {
+       output_low(pin_D5);
+      }
+
+      
+
+      if(!input(pin_c2)&&controledestring==5)
+      {
+        Mododoaquecedor++;
+      }
+      if(!input(pin_c2)&&controledestring==6)
+      {
+        Mododoresfriador++;
+      }
+      if(!input(pin_c2)&&controledestring==7)
+      {
+        Mododabomba++;
+      }
+      if(!input(pin_c2)&&controledestring==8)
+      {
+        Mododoumidificador++;
+      }
+
+      
+      

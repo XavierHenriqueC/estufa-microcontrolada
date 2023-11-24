@@ -1,0 +1,5422 @@
+CCS PCH C Compiler, Version 4.135, 38112               04-fev-19 18:22
+
+               Filename: C:\Users\Henrique\Documents\Backup\Projeto\Projeto Cliconsoles profissional\Firmware Cliconsoles 2.3\Cliconsoles.lst
+
+               ROM used: 14644 bytes (45%)
+                         Largest free fragment is 18120
+               RAM used: 30 (2%) at main() level
+                         136 (9%) worst case
+               Stack:    6 worst case (5 in main + 1 for interrupts)
+
+*
+0000:  GOTO   16C4
+*
+0008:  MOVWF  04
+000A:  MOVFF  FD8,05
+000E:  MOVFF  FE0,06
+0012:  MOVLB  0
+0014:  MOVFF  FE9,0C
+0018:  MOVFF  FEA,07
+001C:  MOVFF  FE1,08
+0020:  MOVFF  FE2,09
+0024:  MOVFF  FD9,0A
+0028:  MOVFF  FDA,0B
+002C:  MOVFF  FF3,12
+0030:  MOVFF  FF4,13
+0034:  MOVFF  FFA,14
+0038:  MOVFF  FF5,15
+003C:  MOVFF  FF6,16
+0040:  MOVFF  FF7,17
+0044:  MOVFF  00,0E
+0048:  MOVFF  01,0F
+004C:  MOVFF  02,10
+0050:  MOVFF  03,11
+0054:  BTFSS  F9D.5
+0056:  GOTO   0060
+005A:  BTFSC  F9E.5
+005C:  GOTO   00C2
+0060:  MOVFF  0E,00
+0064:  MOVFF  0F,01
+0068:  MOVFF  10,02
+006C:  MOVFF  11,03
+0070:  MOVFF  0C,FE9
+0074:  MOVFF  07,FEA
+0078:  BSF    07.7
+007A:  MOVFF  08,FE1
+007E:  MOVFF  09,FE2
+0082:  MOVFF  0A,FD9
+0086:  MOVFF  0B,FDA
+008A:  MOVFF  12,FF3
+008E:  MOVFF  13,FF4
+0092:  MOVFF  14,FFA
+0096:  MOVFF  15,FF5
+009A:  MOVFF  16,FF6
+009E:  MOVFF  17,FF7
+00A2:  MOVF   04,W
+00A4:  MOVFF  06,FE0
+00A8:  MOVFF  05,FD8
+00AC:  RETFIE 0
+.................... ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+.................... //O projeto CLICONSOLES (Climatização e Controle do Solo em Estufa), foi desenvolvido por:                                                     // 
+.................... //Henrique Xavier da Costa;                                                                                                                   //                                                                                                                                      
+.................... //Com a finalidade de controlar os fatores Temperatura, Umidade do Ar (RHar) e Umidade do Solo (RHsolo) através de acionamentos basicos de   // 
+.................... //um aquecedor, um cooler, uma bomba d'agua e um pulverizador. */                                                                           //  
+.................... ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+....................  
+.................... #include <18F452.H> 
+.................... //////// Standard Header file for the PIC18F452 device //////////////// 
+.................... #device PIC18F452 
+.................... #list 
+....................  
+.................... #device ADC=10 
+.................... #use delay (clock=16000000) 
+*
+07C6:  CLRF   FEA
+07C8:  MOVLW  7B
+07CA:  MOVWF  FE9
+07CC:  MOVF   FEF,W
+07CE:  BZ    07EC
+07D0:  MOVLW  05
+07D2:  MOVWF  01
+07D4:  CLRF   00
+07D6:  DECFSZ 00,F
+07D8:  BRA    07D6
+07DA:  DECFSZ 01,F
+07DC:  BRA    07D4
+07DE:  MOVLW  2E
+07E0:  MOVWF  00
+07E2:  DECFSZ 00,F
+07E4:  BRA    07E2
+07E6:  BRA    07E8
+07E8:  DECFSZ FEF,F
+07EA:  BRA    07D0
+07EC:  RETURN 0
+*
+1014:  MOVLW  04
+1016:  SUBWF  6D,F
+1018:  BNC   102C
+101A:  CLRF   FEA
+101C:  MOVLW  6D
+101E:  MOVWF  FE9
+1020:  MOVF   FEF,W
+1022:  BZ    102C
+1024:  BRA    1028
+1026:  NOP   
+1028:  DECFSZ FEF,F
+102A:  BRA    1026
+102C:  GOTO   20FC (RETURN)
+.................... #fuses HS, NOWDT, PUT, NOBROWNOUT, NOLVP, PROTECT 
+....................  
+.................... #use rs232(baud=9600,parity=N,xmit=PIN_C6,rcv=PIN_C7,bits=8)// Pino RC6 é Tx e o Pino Rx é o Pino RC7 
+....................  
+.................... #include <mod_lcd.c>  // Biblioteca retirada do livro Linguagem C para PIC de Fabio Pereira 
+.................... /************************************************************************/ 
+.................... /*  MOD_LCD.C - Biblioteca de manipulação de módulo LCD                 */ 
+.................... /*                                                                      */ 
+.................... /*  Autor: Fábio Pereira                                                */ 
+.................... /*                                                                      */ 
+.................... /************************************************************************/ 
+....................  
+.................... // As definições a seguir são utilizadas para acesso aos pinos do display 
+.................... // caso o pino RW não seja utilizado, comente a definição lcd_rw 
+.................... #ifndef lcd_enable 
+....................    #define lcd_enable       pin_b3      // pino enable do LCD 
+....................    #define lcd_rs         pin_b2    // pino rs do LCD 
+....................    //#define lcd_rw      pin_e2      // pino rw do LCD 
+....................    #define lcd_d4         pin_b4     // pino de dados d4 do LCD 
+....................    #define lcd_d5         pin_b5      // pino de dados d5 do LCD 
+....................    #define lcd_d6         pin_b6     // pino de dados d6 do LCD 
+....................    #define lcd_d7         pin_b7     // pino de dados d7 do LCD 
+.................... #endif 
+....................  
+.................... #define lcd_type 2           // 0=5x7, 1=5x10, 2=2 linhas 
+.................... #define lcd_seg_lin 0x40    // Endereço da segunda linha na RAM do LCD 
+....................  
+.................... // a constante abaixo define a seqüência de inicialização do módulo LCD 
+.................... byte CONST INI_LCD[4] = {0x20 | (lcd_type << 2), 0xf, 1, 6}; 
+....................  
+.................... byte lcd_le_byte() 
+.................... // lê um byte do LCD (somente com pino RW) 
+.................... { 
+....................    byte dado; 
+....................    // configura os pinos de dados como entradas 
+....................    input(lcd_d4); 
+....................    input(lcd_d5); 
+....................    input(lcd_d6); 
+....................    input(lcd_d7); 
+....................    // se o pino rw for utilizado, coloca em 1 
+....................    #ifdef lcd_rw 
+....................       output_high(lcd_rw); 
+....................    #endif 
+....................    output_high(lcd_enable); // habilita display 
+....................    dado = 0;   // zera a variável de leitura 
+....................    // lê os quatro bits mais significativos 
+....................    if (input(lcd_d7)) bit_set(dado,7); 
+....................    if (input(lcd_d6)) bit_set(dado,6); 
+....................    if (input(lcd_d5)) bit_set(dado,5); 
+....................    if (input(lcd_d4)) bit_set(dado,4); 
+....................    // dá um pulso na linha enable 
+....................    output_low(lcd_enable); 
+....................    output_high(lcd_enable); 
+....................    // lê os quatro bits menos significativos 
+....................    if (input(lcd_d7)) bit_set(dado,3); 
+....................    if (input(lcd_d6)) bit_set(dado,2); 
+....................    if (input(lcd_d5)) bit_set(dado,1); 
+....................    if (input(lcd_d4)) bit_set(dado,0); 
+....................    output_low(lcd_enable);   // desabilita o display 
+....................    return dado;   // retorna o byte lido 
+.................... } 
+....................  
+.................... void lcd_envia_nibble( byte dado ) 
+.................... // envia um dado de quatro bits para o display 
+.................... { 
+....................    // coloca os quatro bits nas saidas 
+....................    output_bit(lcd_d4,bit_test(dado,0)); 
+*
+07EE:  BTFSC  x82.0
+07F0:  BRA    07F6
+07F2:  BCF    F8A.4
+07F4:  BRA    07F8
+07F6:  BSF    F8A.4
+07F8:  BCF    F93.4
+....................    output_bit(lcd_d5,bit_test(dado,1)); 
+07FA:  BTFSC  x82.1
+07FC:  BRA    0802
+07FE:  BCF    F8A.5
+0800:  BRA    0804
+0802:  BSF    F8A.5
+0804:  BCF    F93.5
+....................    output_bit(lcd_d6,bit_test(dado,2)); 
+0806:  BTFSC  x82.2
+0808:  BRA    080E
+080A:  BCF    F8A.6
+080C:  BRA    0810
+080E:  BSF    F8A.6
+0810:  BCF    F93.6
+....................    output_bit(lcd_d7,bit_test(dado,3)); 
+0812:  BTFSC  x82.3
+0814:  BRA    081A
+0816:  BCF    F8A.7
+0818:  BRA    081C
+081A:  BSF    F8A.7
+081C:  BCF    F93.7
+....................    // dá um pulso na linha enable 
+....................    output_high(lcd_enable); 
+081E:  BCF    F93.3
+0820:  BSF    F8A.3
+....................    output_low(lcd_enable); 
+0822:  BCF    F93.3
+0824:  BCF    F8A.3
+.................... } 
+0826:  RETURN 0
+....................  
+....................  
+.................... void lcd_envia_byte( boolean endereco, byte dado ) 
+.................... { 
+....................    // coloca a linha rs em 0 
+....................    output_low(lcd_rs); 
+0828:  BCF    F93.2
+082A:  BCF    F8A.2
+....................    // aguarda o display ficar desocupado 
+....................    //while ( bit_test(lcd_le_byte(),7) ) ; 
+....................    // configura a linha rs dependendo do modo selecionado 
+....................    output_bit(lcd_rs,endereco); 
+082C:  MOVF   7F,F
+082E:  BNZ   0834
+0830:  BCF    F8A.2
+0832:  BRA    0836
+0834:  BSF    F8A.2
+0836:  BCF    F93.2
+....................    delay_us(100);   // aguarda 100 us 
+0838:  MOVLW  85
+083A:  MOVWF  00
+083C:  DECFSZ 00,F
+083E:  BRA    083C
+....................    // caso a linha rw esteja definida, coloca em 0 
+....................    #ifdef lcd_rw 
+....................       output_low(lcd_rw); 
+....................    #endif 
+....................    // desativa linha enable 
+....................    output_low(lcd_enable); 
+0840:  BCF    F93.3
+0842:  BCF    F8A.3
+....................    // envia a primeira parte do byte 
+....................    lcd_envia_nibble(dado >> 4); 
+0844:  SWAPF  x80,W
+0846:  MOVWF  x81
+0848:  MOVLW  0F
+084A:  ANDWF  x81,F
+084C:  MOVFF  81,82
+0850:  RCALL  07EE
+....................    // envia a segunda parte do byte 
+....................    lcd_envia_nibble(dado & 0x0f); 
+0852:  MOVF   x80,W
+0854:  ANDLW  0F
+0856:  MOVWF  x81
+0858:  MOVWF  x82
+085A:  RCALL  07EE
+.................... } 
+085C:  RETURN 0
+....................  
+....................  
+.................... void lcd_ini() 
+.................... // rotina de inicialização do display 
+.................... { 
+....................    byte conta; 
+....................    output_low(lcd_d4); 
+085E:  BCF    F93.4
+0860:  BCF    F8A.4
+....................    output_low(lcd_d5); 
+0862:  BCF    F93.5
+0864:  BCF    F8A.5
+....................    output_low(lcd_d6); 
+0866:  BCF    F93.6
+0868:  BCF    F8A.6
+....................    output_low(lcd_d7); 
+086A:  BCF    F93.7
+086C:  BCF    F8A.7
+....................    output_low(lcd_rs); 
+086E:  BCF    F93.2
+0870:  BCF    F8A.2
+....................    #ifdef lcd_rw 
+....................       output_high(lcd_rw); 
+....................    #endif 
+....................    output_low(lcd_enable); 
+0872:  BCF    F93.3
+0874:  BCF    F8A.3
+....................    delay_ms(15); 
+0876:  MOVLW  0F
+0878:  MOVWF  7B
+087A:  RCALL  07C6
+....................    // envia uma seqüência de 3 vezes 0x03 
+....................    // e depois 0x02 para configurar o módulo 
+....................    // para modo de 4 bits 
+....................    for(conta=1;conta<=3;++conta) 
+087C:  MOVLW  01
+087E:  MOVWF  6D
+0880:  MOVF   6D,W
+0882:  SUBLW  03
+0884:  BNC   0896
+....................    { 
+....................       lcd_envia_nibble(3); 
+0886:  MOVLW  03
+0888:  MOVWF  x82
+088A:  RCALL  07EE
+....................       delay_ms(5); 
+088C:  MOVLW  05
+088E:  MOVWF  7B
+0890:  RCALL  07C6
+....................    } 
+0892:  INCF   6D,F
+0894:  BRA    0880
+....................    lcd_envia_nibble(2); 
+0896:  MOVLW  02
+0898:  MOVWF  x82
+089A:  RCALL  07EE
+....................    // envia string de inicialização do display 
+....................    for(conta=0;conta<=3;++conta) lcd_envia_byte(0,INI_LCD[conta]); 
+089C:  CLRF   6D
+089E:  MOVF   6D,W
+08A0:  SUBLW  03
+08A2:  BNC   08B6
+08A4:  CLRF   03
+08A6:  MOVF   6D,W
+08A8:  RCALL  00AE
+08AA:  MOVWF  6E
+08AC:  CLRF   7F
+08AE:  MOVWF  x80
+08B0:  RCALL  0828
+08B2:  INCF   6D,F
+08B4:  BRA    089E
+.................... } 
+08B6:  GOTO   177C (RETURN)
+....................  
+.................... void lcd_pos_xy( byte x, byte y) 
+.................... { 
+....................    byte endereco; 
+....................    if(y!=1) 
+08BA:  DECFSZ 7C,W
+08BC:  BRA    08C0
+08BE:  BRA    08C6
+....................       endereco = lcd_seg_lin; 
+08C0:  MOVLW  40
+08C2:  MOVWF  7D
+....................    else 
+08C4:  BRA    08C8
+....................       endereco = 0; 
+08C6:  CLRF   7D
+....................    endereco += x-1; 
+08C8:  MOVLW  01
+08CA:  SUBWF  7B,W
+08CC:  ADDWF  7D,F
+....................    lcd_envia_byte(0,0x80|endereco); 
+08CE:  MOVF   7D,W
+08D0:  IORLW  80
+08D2:  MOVWF  7E
+08D4:  CLRF   7F
+08D6:  MOVWF  x80
+08D8:  RCALL  0828
+.................... } 
+08DA:  RETURN 0
+....................  
+.................... void lcd_escreve( char c) 
+.................... // envia caractere para o display 
+.................... { 
+....................    switch (c) 
+....................    { 
+08DC:  MOVF   7A,W
+08DE:  XORLW  0C
+08E0:  BZ    08F0
+08E2:  XORLW  06
+08E4:  BZ    0900
+08E6:  XORLW  07
+08E8:  BZ    0900
+08EA:  XORLW  05
+08EC:  BZ    090C
+08EE:  BRA    0916
+....................      case '\f'    :   lcd_envia_byte(0,1); 
+08F0:  CLRF   7F
+08F2:  MOVLW  01
+08F4:  MOVWF  x80
+08F6:  RCALL  0828
+....................               delay_ms(2); 
+08F8:  MOVLW  02
+08FA:  MOVWF  7B
+08FC:  RCALL  07C6
+....................             break; 
+08FE:  BRA    0922
+....................      case '\n'   : 
+....................      case '\r'    :   lcd_pos_xy(1,2); 
+0900:  MOVLW  01
+0902:  MOVWF  7B
+0904:  MOVLW  02
+0906:  MOVWF  7C
+0908:  RCALL  08BA
+....................               break; 
+090A:  BRA    0922
+....................      case '\b'    :   lcd_envia_byte(0,0x10); 
+090C:  CLRF   7F
+090E:  MOVLW  10
+0910:  MOVWF  x80
+0912:  RCALL  0828
+....................               break; 
+0914:  BRA    0922
+....................      default   :   lcd_envia_byte(1,c); 
+0916:  MOVLW  01
+0918:  MOVWF  7F
+091A:  MOVFF  7A,80
+091E:  RCALL  0828
+....................               break; 
+0920:  BRA    0922
+....................    } 
+.................... } 
+0922:  RETURN 0
+....................  
+.................... char lcd_le( byte x, byte y) 
+.................... // le caractere do display 
+.................... { 
+....................    char valor; 
+....................    // seleciona a posição do caractere 
+....................    lcd_pos_xy(x,y); 
+....................    // ativa rs 
+....................    output_high(lcd_rs); 
+....................    // lê o caractere 
+....................    valor = lcd_le_byte(); 
+....................    // desativa rs 
+....................    output_low(lcd_rs); 
+....................    // retorna o valor do caractere 
+....................    return valor; 
+.................... } 
+....................  
+....................  
+....................  
+.................... //.....................................................................................................   
+.................... int comando=0; 
+....................    
+.................... #int_rda 
+.................... void isr()  
+.................... { 
+....................    char  dado; 
+....................  
+....................    dado = getch(); 
+*
+00C2:  BTFSS  F9E.5
+00C4:  BRA    00C2
+00C6:  MOVFF  FAE,87
+....................    if (dado=='v'||dado=='V') 
+00CA:  MOVF   x87,W
+00CC:  SUBLW  76
+00CE:  BZ    00D6
+00D0:  MOVF   x87,W
+00D2:  SUBLW  56
+00D4:  BNZ   00DA
+....................    comando=1; 
+00D6:  MOVLW  01
+00D8:  MOVWF  19
+....................    if (dado=='A') 
+00DA:  MOVF   x87,W
+00DC:  SUBLW  41
+00DE:  BNZ   00E4
+....................    comando=2; 
+00E0:  MOVLW  02
+00E2:  MOVWF  19
+....................    if (dado=='a') 
+00E4:  MOVF   x87,W
+00E6:  SUBLW  61
+00E8:  BNZ   00EE
+....................    comando=3; 
+00EA:  MOVLW  03
+00EC:  MOVWF  19
+....................    if (dado=='R') 
+00EE:  MOVF   x87,W
+00F0:  SUBLW  52
+00F2:  BNZ   00F8
+....................    comando=4; 
+00F4:  MOVLW  04
+00F6:  MOVWF  19
+....................    if (dado=='r') 
+00F8:  MOVF   x87,W
+00FA:  SUBLW  72
+00FC:  BNZ   0102
+....................    comando=5; 
+00FE:  MOVLW  05
+0100:  MOVWF  19
+....................    if (dado=='U') 
+0102:  MOVF   x87,W
+0104:  SUBLW  55
+0106:  BNZ   010C
+....................    comando=6; 
+0108:  MOVLW  06
+010A:  MOVWF  19
+....................    if (dado=='u') 
+010C:  MOVF   x87,W
+010E:  SUBLW  75
+0110:  BNZ   0116
+....................    comando=7; 
+0112:  MOVLW  07
+0114:  MOVWF  19
+....................    if (dado=='I') 
+0116:  MOVF   x87,W
+0118:  SUBLW  49
+011A:  BNZ   0120
+....................    comando=8; 
+011C:  MOVLW  08
+011E:  MOVWF  19
+....................    if (dado=='i') 
+0120:  MOVF   x87,W
+0122:  SUBLW  69
+0124:  BNZ   012A
+....................    comando=9; 
+0126:  MOVLW  09
+0128:  MOVWF  19
+....................    if (dado=='M'||dado=='m') 
+012A:  MOVF   x87,W
+012C:  SUBLW  4D
+012E:  BZ    0136
+0130:  MOVF   x87,W
+0132:  SUBLW  6D
+0134:  BNZ   013A
+....................    comando=10; 
+0136:  MOVLW  0A
+0138:  MOVWF  19
+....................    if (dado=='E'||dado=='e') 
+013A:  MOVF   x87,W
+013C:  SUBLW  45
+013E:  BZ    0146
+0140:  MOVF   x87,W
+0142:  SUBLW  65
+0144:  BNZ   014A
+....................    comando=11; 
+0146:  MOVLW  0B
+0148:  MOVWF  19
+.................... } 
+.................... //...................................................................................................    
+....................     
+014A:  BCF    F9E.5
+014C:  GOTO   0060
+.................... void main(void) 
+.................... { 
+*
+16C4:  CLRF   FF8
+16C6:  BCF    FD0.7
+16C8:  BSF    07.7
+16CA:  CLRF   FEA
+16CC:  CLRF   FE9
+16CE:  MOVLW  19
+16D0:  MOVWF  FAF
+16D2:  MOVLW  A2
+16D4:  MOVWF  FAC
+16D6:  MOVLW  90
+16D8:  MOVWF  FAB
+16DA:  CLRF   19
+16DC:  BSF    FC1.0
+16DE:  BSF    FC1.1
+16E0:  BSF    FC1.2
+16E2:  BCF    FC1.3
+....................  
+....................     
+....................    enable_interrupts(int_rda); 
+16E4:  BSF    F9D.5
+....................    enable_interrupts(global); 
+16E6:  MOVLW  C0
+16E8:  IORWF  FF2,F
+....................     
+....................  //VARIAVEIS PARA CONTROLE DE TEMPERATURA (Sensor: LM35) 
+....................    float Temperatura=0;                   //Temperatura final medida 
+....................    int16 mediaADtpt;                      //Media do conversor AD para leitura de temperatura 
+....................    int   Tmin=0, Tmax=25;                 //Temperatura minima e maxima (Parametrizavel) 
+....................    int   Temperaturaminimaregistrada=99;  //Registrador de valor maximo lido de Temperatura 
+....................    int   Temperaturamaximaregistrada=0;   //Registrador de valor minimo lido de Temperatura 
+....................    int1  Mododoaquecedor=0;               //Variavel para controlar o modo do aquecedor (Ligado=1/Automatico=0) 
+....................    int1  Mododoresfriador=0;              //Variavel para controlar o modo do resfriador (Ligado=1/Automatico=0) 
+....................    int1  aquec_aut=0; 
+....................    int1  resfr_aut=0; 
+....................     
+....................    //VARIAVEIS PARA CONTROLE DE UMIDADE DO SOLO (Sensor: Moisture soil) 
+....................    float RHsolo=0;                        //Umidade do Solo final medido 
+....................    int16 tempo_on=0, tempo_off=0;         //tempos que controlam a bomba de irrigação 
+....................    int16 mediaADRHsolo;                   //Media do conversor AD para leitura de Umidade do Solo 
+....................    int16 tempo_bombaOff;                  //Tempo que a bomba de irrigação fica desligada 
+....................    int   tempo_bombaOn;                   //Tempo que a bomba de irrigação fica ligada 
+....................    int   RHsolominimoregistrado=100;      //Registrador de valor maximo lido de Umidade do solo (RHsolo) 
+....................    int   RHsolomaximoregistrado=0;        //Registrador de valor minimo lido de Umidade do solo (RHsolo) 
+....................    int   RHdesSOLO=0;                     //RH desejado SOLO (Parametrizavel) 
+....................    int   Mododabomba=0;                   //Variavel para controlar o modo da bomba (Ligado=1/Automatico=0/Timer=2) 
+....................    int   horabombaligada=0;               //Hora programada para a bomba ligar (MODO TIMER) 
+....................    int   horabombadesligada=0;            //Hora programada para a bomba desligar (MODO TIMER) 
+....................    int   minutobombaligada=0;             //Minuto programado para a bomba ligar (MODO TIMER) 
+....................    int   minutobombadesligada=1;          //Minuto programado para a bomba desligar (MODO TIMER) 
+....................    signed int   difRHsolo;                //diferença entre o valor parametrizado (RHdesSOLO) eo valor medido (RHsolo) 
+....................    int1  Timerdabomba=0;                  //Habilita=1/Desabilita=0 o modo TIMER na bomba 
+....................    int1  timersobeautomatico=0;           //Modo timer da bomba de irrigação sobe automatico em caso de ERRO 4. 
+....................     
+....................    //VARIAVEIS PARA CONTROLE DE UMIDADE DO AR (Sensor: HIH-4000-003) 
+....................    float RHar=0;                          //Umidade do AR final medido 
+....................    int16 mediaADRHar;                     //Media do conversor AD para leitura de Umidade do AR 
+....................    int   RHdesAR=0;                       //RH desejado AR (Parametrizavel) 
+....................    int   RHarminimoregistrado=100;        //Registrador de valor maximo lido de Umidade do ar (RHar) 
+....................    int   RHarmaximoregistrado=0;          //Registrador de valor minimo lido de Umidade do ar (RHsar) 
+....................    int1  Mododoumidificador=0;            //Variavel para controlar o modo do Umidificador (Ligado=1/Automatico=0) 
+....................    int16   tempo_on_2=0; 
+....................    int16   tempo_off_2=0; 
+....................    int     tempo_bombaOn_2; 
+....................    int16   tempo_bombaOff_2; 
+....................    signed int difRHar; 
+....................     
+....................    //VARIAVEIS AUXILIARES 
+....................    float tensao;                          //Auxiliar para valores de tensão dos sensores 
+....................    int16 valor;                           //Auxiliar para valores dos Conversores AD 
+....................    int   H=0,M=0,S=0;                     //RELOGIO: HORA, MINUTO, SEGUNDO 
+....................    int   controletempo=0;                 //Auxiliar para os Segundos do relogio 
+....................    int   leituraEeprom;                   //Auxiliar para ler um endereço da memória eeprom e outras funções 
+....................    int   rep;                             //Auxiliar para repetiçoes (FOR) 
+....................    int   controledestring=0;              //Auxiliar para controle das strings 
+....................    int   controledestring2=0;             //Auxiliar para controle das strings 2 
+....................    int   controledestring3=0;             //Auxiliar para controle das strings 3 
+....................    int   controle=0;                      //Auxiliar contador de tempo para controle de strings  
+....................    int   controle2=0;                     //Auxiliar contador de tempo para controle de strings 2 
+....................    int   controle3=0;                     //Auxiliar contador de tempo para controle de strings 3 
+....................    int   controle4=0; 
+....................    int   controleserial=0; 
+....................    int   teclapressionada=0;              //Verifica se a tecla C1 foi pressionada 
+....................    int   teclapressionadaMenu=0;          //Verifica se a tecla C0 foi pressionada 
+....................    int   teclapressionadaMenu2=0;         //Verifica se a tecla C0 foi pressionada 2 
+....................    int   somadosErros=0;                  //Soma os erros em Hexadecimal 
+....................    int   MemoriadosErros=0;               //Guarda os valores da soma de erros 
+....................    int1  erro1=0;                         //Auxiliar para indicar erros 
+....................    int   erro2=0;                         //Auxiliar para indicar erros 
+....................    int   erro4=0;                         //Auxiliar para indicar erros 
+....................    int   erro8=0;                         //Auxiliar para indicar erros 
+....................    int1  auxiliardeErros1; 
+....................    int   auxiliardeErros2; 
+....................    int   auxiliardeErros4; 
+....................    int   auxiliardeErros8; 
+....................    int1  verificateclaC1=0;               //Verifica se a tecla C1 permanece apertada 
+....................    int1  verificateclaC0=0;               //Verifica se a tecla C0 permanece apertada 
+....................    int   timerErro=0;   
+16EA:  CLRF   1D
+16EC:  CLRF   1C
+16EE:  CLRF   1B
+16F0:  CLRF   1A
+16F2:  CLRF   20
+16F4:  MOVLW  19
+16F6:  MOVWF  21
+16F8:  MOVLW  63
+16FA:  MOVWF  22
+16FC:  CLRF   23
+16FE:  BCF    24.0
+1700:  BCF    24.1
+1702:  BCF    24.2
+1704:  BCF    24.3
+1706:  CLRF   28
+1708:  CLRF   27
+170A:  CLRF   26
+170C:  CLRF   25
+170E:  CLRF   2A
+1710:  CLRF   29
+1712:  CLRF   2C
+1714:  CLRF   2B
+1716:  MOVLW  64
+1718:  MOVWF  32
+171A:  CLRF   33
+171C:  CLRF   34
+171E:  CLRF   35
+1720:  CLRF   36
+1722:  CLRF   37
+1724:  CLRF   38
+1726:  MOVLW  01
+1728:  MOVWF  39
+172A:  BCF    24.4
+172C:  BCF    24.5
+172E:  CLRF   3E
+1730:  CLRF   3D
+1732:  CLRF   3C
+1734:  CLRF   3B
+1736:  CLRF   41
+1738:  MOVLW  64
+173A:  MOVWF  42
+173C:  CLRF   43
+173E:  BCF    24.6
+1740:  CLRF   45
+1742:  CLRF   44
+1744:  CLRF   47
+1746:  CLRF   46
+1748:  CLRF   52
+174A:  CLRF   53
+174C:  CLRF   54
+174E:  CLRF   55
+1750:  CLRF   58
+1752:  CLRF   59
+1754:  CLRF   5A
+1756:  CLRF   5B
+1758:  CLRF   5C
+175A:  CLRF   5D
+175C:  CLRF   5E
+175E:  CLRF   5F
+1760:  CLRF   60
+1762:  CLRF   61
+1764:  CLRF   62
+1766:  CLRF   63
+1768:  CLRF   64
+176A:  BCF    24.7
+176C:  CLRF   65
+176E:  CLRF   66
+1770:  CLRF   67
+1772:  BCF    68.1
+1774:  BCF    68.2
+1776:  CLRF   6C
+.................... //.......................................................................................................    
+....................    //HABILITA LCD E PORTAS ANALOGICAS 
+....................    lcd_ini();                             //Inicializa lcd 
+1778:  GOTO   085E
+....................    delay_ms(300);                         //Aguarda lcd estar pronto 
+177C:  MOVLW  02
+177E:  MOVWF  6D
+1780:  MOVLW  96
+1782:  MOVWF  7B
+1784:  CALL   07C6
+1788:  DECFSZ 6D,F
+178A:  BRA    1780
+....................    setup_ADC_ports (AN0_AN1_AN3);         //Habilita portas Analógicas 
+178C:  BCF    FC1.0
+178E:  BCF    FC1.1
+1790:  BSF    FC1.2
+1792:  BCF    FC1.3
+....................    setup_ADC(ADC_CLOCK_INTERNAL);         //Conversor AD em 4MHz (CLOCK INTERNO) 
+1794:  BCF    FC1.6
+1796:  BSF    FC2.6
+1798:  BSF    FC2.7
+179A:  BSF    FC1.7
+179C:  BSF    FC2.0
+....................     
+....................    // LÊ VALORES ANTES SALVOS NA MEMORIA EEPROM 
+....................    Tmin=                 read_eeprom (1);             
+179E:  MOVFF  FF2,6D
+17A2:  BCF    FF2.7
+17A4:  MOVLW  01
+17A6:  MOVWF  FA9
+17A8:  BCF    FA6.6
+17AA:  BCF    FA6.7
+17AC:  BSF    FA6.0
+17AE:  MOVF   FA8,W
+17B0:  BTFSC  6D.7
+17B2:  BSF    FF2.7
+17B4:  MOVWF  20
+....................    Tmax=                 read_eeprom (2); 
+17B6:  MOVFF  FF2,6D
+17BA:  BCF    FF2.7
+17BC:  MOVLW  02
+17BE:  MOVWF  FA9
+17C0:  BCF    FA6.6
+17C2:  BCF    FA6.7
+17C4:  BSF    FA6.0
+17C6:  MOVF   FA8,W
+17C8:  BTFSC  6D.7
+17CA:  BSF    FF2.7
+17CC:  MOVWF  21
+....................    RHdesSOLO=            read_eeprom (3); 
+17CE:  MOVFF  FF2,6D
+17D2:  BCF    FF2.7
+17D4:  MOVLW  03
+17D6:  MOVWF  FA9
+17D8:  BCF    FA6.6
+17DA:  BCF    FA6.7
+17DC:  BSF    FA6.0
+17DE:  MOVF   FA8,W
+17E0:  BTFSC  6D.7
+17E2:  BSF    FF2.7
+17E4:  MOVWF  34
+....................    RHdesAR=              read_eeprom (4); 
+17E6:  MOVFF  FF2,6D
+17EA:  BCF    FF2.7
+17EC:  MOVLW  04
+17EE:  MOVWF  FA9
+17F0:  BCF    FA6.6
+17F2:  BCF    FA6.7
+17F4:  BSF    FA6.0
+17F6:  MOVF   FA8,W
+17F8:  BTFSC  6D.7
+17FA:  BSF    FF2.7
+17FC:  MOVWF  41
+....................    horabombaligada=      read_eeprom (5); 
+17FE:  MOVFF  FF2,6D
+1802:  BCF    FF2.7
+1804:  MOVLW  05
+1806:  MOVWF  FA9
+1808:  BCF    FA6.6
+180A:  BCF    FA6.7
+180C:  BSF    FA6.0
+180E:  MOVF   FA8,W
+1810:  BTFSC  6D.7
+1812:  BSF    FF2.7
+1814:  MOVWF  36
+....................    horabombadesligada=   read_eeprom (6);          
+1816:  MOVFF  FF2,6D
+181A:  BCF    FF2.7
+181C:  MOVLW  06
+181E:  MOVWF  FA9
+1820:  BCF    FA6.6
+1822:  BCF    FA6.7
+1824:  BSF    FA6.0
+1826:  MOVF   FA8,W
+1828:  BTFSC  6D.7
+182A:  BSF    FF2.7
+182C:  MOVWF  37
+....................    minutobombaligada=    read_eeprom (7);  
+182E:  MOVFF  FF2,6D
+1832:  BCF    FF2.7
+1834:  MOVLW  07
+1836:  MOVWF  FA9
+1838:  BCF    FA6.6
+183A:  BCF    FA6.7
+183C:  BSF    FA6.0
+183E:  MOVF   FA8,W
+1840:  BTFSC  6D.7
+1842:  BSF    FF2.7
+1844:  MOVWF  38
+....................    minutobombadesligada= read_eeprom (8); 
+1846:  MOVFF  FF2,6D
+184A:  BCF    FF2.7
+184C:  MOVLW  08
+184E:  MOVWF  FA9
+1850:  BCF    FA6.6
+1852:  BCF    FA6.7
+1854:  BSF    FA6.0
+1856:  MOVF   FA8,W
+1858:  BTFSC  6D.7
+185A:  BSF    FF2.7
+185C:  MOVWF  39
+....................    auxiliardeErros1=     read_eeprom (9); 
+185E:  MOVFF  FF2,6D
+1862:  BCF    FF2.7
+1864:  MOVLW  09
+1866:  MOVWF  FA9
+1868:  BCF    FA6.6
+186A:  BCF    FA6.7
+186C:  BSF    FA6.0
+186E:  MOVF   FA8,W
+1870:  BTFSC  6D.7
+1872:  BSF    FF2.7
+1874:  MOVWF  01
+1876:  BCF    68.0
+1878:  BTFSC  01.0
+187A:  BSF    68.0
+....................    auxiliardeErros2=     read_eeprom (10); 
+187C:  MOVFF  FF2,6D
+1880:  BCF    FF2.7
+1882:  MOVLW  0A
+1884:  MOVWF  FA9
+1886:  BCF    FA6.6
+1888:  BCF    FA6.7
+188A:  BSF    FA6.0
+188C:  MOVF   FA8,W
+188E:  BTFSC  6D.7
+1890:  BSF    FF2.7
+1892:  MOVWF  69
+....................    auxiliardeErros4=     read_eeprom (11); 
+1894:  MOVFF  FF2,6D
+1898:  BCF    FF2.7
+189A:  MOVLW  0B
+189C:  MOVWF  FA9
+189E:  BCF    FA6.6
+18A0:  BCF    FA6.7
+18A2:  BSF    FA6.0
+18A4:  MOVF   FA8,W
+18A6:  BTFSC  6D.7
+18A8:  BSF    FF2.7
+18AA:  MOVWF  6A
+....................    auxiliardeErros8=     read_eeprom (12); 
+18AC:  MOVFF  FF2,6D
+18B0:  BCF    FF2.7
+18B2:  MOVLW  0C
+18B4:  MOVWF  FA9
+18B6:  BCF    FA6.6
+18B8:  BCF    FA6.7
+18BA:  BSF    FA6.0
+18BC:  MOVF   FA8,W
+18BE:  BTFSC  6D.7
+18C0:  BSF    FF2.7
+18C2:  MOVWF  6B
+....................     
+....................    MemoriadosErros=AuxiliardeErros1+AuxiliardeErros2+AuxiliardeErros4+AuxiliardeErros8; 
+18C4:  MOVLW  00
+18C6:  BTFSC  68.0
+18C8:  MOVLW  01
+18CA:  ADDWF  69,W
+18CC:  ADDWF  6A,W
+18CE:  ADDWF  6B,W
+18D0:  MOVWF  64
+.................... //.............................................................................................................    
+....................    //INICIALIZAÇÃO DO PROGRAMA E APRESENTAÇÃO DO PROJETO (SOMENTE AO LIGAR)  
+....................    lcd_escreve ('\f'); 
+18D2:  MOVLW  0C
+18D4:  MOVWF  7A
+18D6:  CALL   08DC
+....................    lcd_pos_xy(3,1); 
+18DA:  MOVLW  03
+18DC:  MOVWF  7B
+18DE:  MOVLW  01
+18E0:  MOVWF  7C
+18E2:  CALL   08BA
+....................    printf (lcd_escreve,"CLICONSOLES       ");  //Climatização e Controle do solo em estufa 
+18E6:  MOVLW  50
+18E8:  MOVWF  FF6
+18EA:  MOVLW  01
+18EC:  MOVWF  FF7
+18EE:  CALL   0924
+....................    delay_ms(3000); 
+18F2:  MOVLW  0C
+18F4:  MOVWF  6D
+18F6:  MOVLW  FA
+18F8:  MOVWF  7B
+18FA:  CALL   07C6
+18FE:  DECFSZ 6D,F
+1900:  BRA    18F6
+....................    lcd_escreve ('\f'); 
+1902:  MOVLW  0C
+1904:  MOVWF  7A
+1906:  CALL   08DC
+....................    lcd_pos_xy(5,1); 
+190A:  MOVLW  05
+190C:  MOVWF  7B
+190E:  MOVLW  01
+1910:  MOVWF  7C
+1912:  CALL   08BA
+....................    printf (lcd_escreve,"Henrique");           //Apresentação 
+1916:  MOVLW  64
+1918:  MOVWF  FF6
+191A:  MOVLW  01
+191C:  MOVWF  FF7
+191E:  CALL   0924
+....................    lcd_pos_xy(2,2); 
+1922:  MOVLW  02
+1924:  MOVWF  7B
+1926:  MOVWF  7C
+1928:  CALL   08BA
+....................    printf (lcd_escreve, "    Xavier     "); 
+192C:  MOVLW  6E
+192E:  MOVWF  FF6
+1930:  MOVLW  01
+1932:  MOVWF  FF7
+1934:  CALL   0924
+....................    delay_ms(2500); 
+1938:  MOVLW  0A
+193A:  MOVWF  6D
+193C:  MOVLW  FA
+193E:  MOVWF  7B
+1940:  CALL   07C6
+1944:  DECFSZ 6D,F
+1946:  BRA    193C
+....................     
+.................... //.................................................................................................................    
+....................    while (TRUE) 
+....................    { 
+....................     
+....................        //1-CONTROLE DE STRINGS 
+....................       //STRINGS PRINCIPAIS 
+....................       if (controledestring==0&&controledestring2==0) 
+1948:  MOVF   58,F
+194A:  BNZ   1A38
+194C:  MOVF   59,F
+194E:  BNZ   1A38
+....................       { 
+....................         lcd_pos_xy(1,1); 
+1950:  MOVLW  01
+1952:  MOVWF  7B
+1954:  MOVWF  7C
+1956:  CALL   08BA
+....................         printf (lcd_escreve, "%1.1f%cC %03.0f%s RHar",Temperatura,0xDF,RHar,"%");  
+195A:  MOVLW  89
+195C:  MOVWF  FE9
+195E:  MOVFF  1D,70
+1962:  MOVFF  1C,6F
+1966:  MOVFF  1B,6E
+196A:  MOVFF  1A,6D
+196E:  MOVLW  01
+1970:  MOVWF  71
+1972:  CALL   0B02
+1976:  MOVLW  DF
+1978:  MOVWF  7A
+197A:  CALL   08DC
+197E:  MOVLW  43
+1980:  MOVWF  7A
+1982:  CALL   08DC
+1986:  MOVLW  20
+1988:  MOVWF  7A
+198A:  CALL   08DC
+198E:  MOVLW  42
+1990:  MOVWF  FE9
+1992:  MOVFF  3E,70
+1996:  MOVFF  3D,6F
+199A:  MOVFF  3C,6E
+199E:  MOVFF  3B,6D
+19A2:  CLRF   71
+19A4:  CALL   0B02
+19A8:  MOVLW  96
+19AA:  MOVWF  FF6
+19AC:  MOVLW  01
+19AE:  MOVWF  FF7
+19B0:  CALL   0924
+19B4:  MOVLW  8F
+19B6:  MOVWF  FF6
+19B8:  MOVLW  01
+19BA:  MOVWF  FF7
+19BC:  MOVLW  05
+19BE:  MOVWF  6D
+19C0:  CALL   0C7A
+....................         lcd_pos_xy(1,2); 
+19C4:  MOVLW  01
+19C6:  MOVWF  7B
+19C8:  MOVLW  02
+19CA:  MOVWF  7C
+19CC:  CALL   08BA
+....................         printf (lcd_escreve, "%03.0f%s RHsolo%c%lu   ", RHsolo,"%",0x7E,tempo_off); 
+19D0:  MOVLW  42
+19D2:  MOVWF  FE9
+19D4:  MOVFF  28,70
+19D8:  MOVFF  27,6F
+19DC:  MOVFF  26,6E
+19E0:  MOVFF  25,6D
+19E4:  CLRF   71
+19E6:  CALL   0B02
+19EA:  MOVLW  B0
+19EC:  MOVWF  FF6
+19EE:  MOVLW  01
+19F0:  MOVWF  FF7
+19F2:  CALL   0924
+19F6:  MOVLW  A0
+19F8:  MOVWF  FF6
+19FA:  MOVLW  01
+19FC:  MOVWF  FF7
+19FE:  MOVLW  07
+1A00:  MOVWF  6D
+1A02:  CALL   0C7A
+1A06:  MOVLW  7E
+1A08:  MOVWF  7A
+1A0A:  CALL   08DC
+1A0E:  MOVLW  10
+1A10:  MOVWF  FE9
+1A12:  MOVFF  2C,6E
+1A16:  MOVFF  2B,6D
+1A1A:  GOTO   0C98
+1A1E:  MOVLW  20
+1A20:  MOVWF  7A
+1A22:  CALL   08DC
+1A26:  MOVLW  20
+1A28:  MOVWF  7A
+1A2A:  CALL   08DC
+1A2E:  MOVLW  20
+1A30:  MOVWF  7A
+1A32:  CALL   08DC
+....................         teclapressionada=0; 
+1A36:  CLRF   60
+....................       } 
+....................        
+....................       if(!input(pin_c1)&&verificateclaC1==0&&teclapressionada<4) 
+1A38:  BSF    F94.1
+1A3A:  BTFSC  F82.1
+1A3C:  BRA    1A4C
+1A3E:  BTFSC  68.1
+1A40:  BRA    1A4C
+1A42:  MOVF   60,W
+1A44:  SUBLW  03
+1A46:  BNC   1A4C
+....................       { 
+....................         teclapressionada++; 
+1A48:  INCF   60,F
+....................         controle=0; 
+1A4A:  CLRF   5B
+....................       } 
+....................       if(!input(pin_c2)) 
+1A4C:  BSF    F94.2
+1A4E:  BTFSC  F82.2
+1A50:  BRA    1A54
+....................       { 
+....................        controle=0; 
+1A52:  CLRF   5B
+....................       } 
+....................       if(!input(pin_c1)) 
+1A54:  BSF    F94.1
+1A56:  BTFSC  F82.1
+1A58:  BRA    1A5E
+....................       { 
+....................         verificateclaC1=1; 
+1A5A:  BSF    68.1
+....................       } else verificateclac1=0; 
+1A5C:  BRA    1A60
+1A5E:  BCF    68.1
+....................       if(teclapressionada==1&&controledestring2==0) 
+1A60:  DECFSZ 60,W
+1A62:  BRA    1A74
+1A64:  MOVF   59,F
+1A66:  BNZ   1A74
+....................       { 
+....................        controledestring=1; 
+1A68:  MOVLW  01
+1A6A:  MOVWF  58
+....................        lcd_escreve ('\f'); 
+1A6C:  MOVLW  0C
+1A6E:  MOVWF  7A
+1A70:  CALL   08DC
+....................       } 
+....................       if(teclapressionada==2&&controledestring2==0) 
+1A74:  MOVF   60,W
+1A76:  SUBLW  02
+1A78:  BNZ   1A8A
+1A7A:  MOVF   59,F
+1A7C:  BNZ   1A8A
+....................       { 
+....................        controledestring=2; 
+1A7E:  MOVLW  02
+1A80:  MOVWF  58
+....................        lcd_escreve ('\f'); 
+1A82:  MOVLW  0C
+1A84:  MOVWF  7A
+1A86:  CALL   08DC
+....................       } 
+....................       if(teclapressionada==3&&controledestring2==0) 
+1A8A:  MOVF   60,W
+1A8C:  SUBLW  03
+1A8E:  BNZ   1AA0
+1A90:  MOVF   59,F
+1A92:  BNZ   1AA0
+....................       { 
+....................        controledestring=3; 
+1A94:  MOVLW  03
+1A96:  MOVWF  58
+....................        lcd_escreve ('\f'); 
+1A98:  MOVLW  0C
+1A9A:  MOVWF  7A
+1A9C:  CALL   08DC
+....................       } 
+....................       if(teclapressionada==4&&controledestring2==0) 
+1AA0:  MOVF   60,W
+1AA2:  SUBLW  04
+1AA4:  BNZ   1AB6
+1AA6:  MOVF   59,F
+1AA8:  BNZ   1AB6
+....................       { 
+....................        controledestring=4; 
+1AAA:  MOVLW  04
+1AAC:  MOVWF  58
+....................        lcd_escreve ('\f'); 
+1AAE:  MOVLW  0C
+1AB0:  MOVWF  7A
+1AB2:  CALL   08DC
+....................       } 
+.................... //.......................................................................................................       
+....................       //STRING DOS ERROS 
+....................       if(somadosErros!=0&&controledestring2==0&&controle3<=30&&controledestring==0) 
+1AB6:  MOVF   63,F
+1AB8:  BZ    1B0E
+1ABA:  MOVF   59,F
+1ABC:  BNZ   1B0E
+1ABE:  MOVF   5D,W
+1AC0:  SUBLW  1E
+1AC2:  BNC   1B0E
+1AC4:  MOVF   58,F
+1AC6:  BNZ   1B0E
+....................       { 
+....................        lcd_escreve ('\f'); 
+1AC8:  MOVLW  0C
+1ACA:  MOVWF  7A
+1ACC:  CALL   08DC
+....................        lcd_pos_xy(1,1); 
+1AD0:  MOVLW  01
+1AD2:  MOVWF  7B
+1AD4:  MOVWF  7C
+1AD6:  CALL   08BA
+....................        printf(lcd_escreve,"    ALERTA!    "); 
+1ADA:  MOVLW  B2
+1ADC:  MOVWF  FF6
+1ADE:  MOVLW  01
+1AE0:  MOVWF  FF7
+1AE2:  CALL   0924
+....................        lcd_pos_xy(8,2); 
+1AE6:  MOVLW  08
+1AE8:  MOVWF  7B
+1AEA:  MOVLW  02
+1AEC:  MOVWF  7C
+1AEE:  CALL   08BA
+....................        printf(lcd_escreve,"%02d       ",somadosErros); 
+1AF2:  MOVFF  63,6D
+1AF6:  MOVLW  01
+1AF8:  MOVWF  6E
+1AFA:  CALL   0D74
+1AFE:  MOVLW  C6
+1B00:  MOVWF  FF6
+1B02:  MOVLW  01
+1B04:  MOVWF  FF7
+1B06:  MOVLW  07
+1B08:  MOVWF  6D
+1B0A:  CALL   0C7A
+....................       } 
+....................        
+....................       //STRING DE REGISTROS 
+....................       if(controledestring==1) 
+1B0E:  DECFSZ 58,W
+1B10:  BRA    1B7E
+....................       { 
+....................         lcd_pos_xy(1,1); 
+1B12:  MOVLW  01
+1B14:  MOVWF  7B
+1B16:  MOVWF  7C
+1B18:  CALL   08BA
+....................         printf (lcd_escreve, "Temperatura Reg.");  
+1B1C:  MOVLW  CE
+1B1E:  MOVWF  FF6
+1B20:  MOVLW  01
+1B22:  MOVWF  FF7
+1B24:  CALL   0924
+....................         lcd_pos_xy(1,2); 
+1B28:  MOVLW  01
+1B2A:  MOVWF  7B
+1B2C:  MOVLW  02
+1B2E:  MOVWF  7C
+1B30:  CALL   08BA
+....................         printf (lcd_escreve, "Min:%02u%c  Max:%02u%c",Temperaturaminimaregistrada,0XDF,Temperaturamaximaregistrada,0XDF); 
+1B34:  MOVLW  E0
+1B36:  MOVWF  FF6
+1B38:  MOVLW  01
+1B3A:  MOVWF  FF7
+1B3C:  MOVLW  04
+1B3E:  MOVWF  6D
+1B40:  CALL   0C7A
+1B44:  MOVFF  22,6D
+1B48:  MOVLW  01
+1B4A:  MOVWF  6E
+1B4C:  CALL   0E1E
+1B50:  MOVLW  DF
+1B52:  MOVWF  7A
+1B54:  CALL   08DC
+1B58:  MOVLW  EA
+1B5A:  MOVWF  FF6
+1B5C:  MOVLW  01
+1B5E:  MOVWF  FF7
+1B60:  MOVLW  06
+1B62:  MOVWF  6D
+1B64:  CALL   0C7A
+1B68:  MOVFF  23,6D
+1B6C:  MOVLW  01
+1B6E:  MOVWF  6E
+1B70:  CALL   0E1E
+1B74:  MOVLW  DF
+1B76:  MOVWF  7A
+1B78:  CALL   08DC
+....................         controle++; 
+1B7C:  INCF   5B,F
+....................       } 
+....................       if(controledestring==2) 
+1B7E:  MOVF   58,W
+1B80:  SUBLW  02
+1B82:  BNZ   1BE0
+....................       { 
+....................         lcd_pos_xy(1,1); 
+1B84:  MOVLW  01
+1B86:  MOVWF  7B
+1B88:  MOVWF  7C
+1B8A:  CALL   08BA
+....................         printf (lcd_escreve, "Umid. Solo  Reg.");  
+1B8E:  MOVLW  F8
+1B90:  MOVWF  FF6
+1B92:  MOVLW  01
+1B94:  MOVWF  FF7
+1B96:  CALL   0924
+....................         lcd_pos_xy(1,2); 
+1B9A:  MOVLW  01
+1B9C:  MOVWF  7B
+1B9E:  MOVLW  02
+1BA0:  MOVWF  7C
+1BA2:  CALL   08BA
+....................         printf (lcd_escreve, "Min:%03u  Max:%03u",RHsolominimoregistrado,RHsolomaximoregistrado); 
+1BA6:  MOVLW  0A
+1BA8:  MOVWF  FF6
+1BAA:  MOVLW  02
+1BAC:  MOVWF  FF7
+1BAE:  MOVLW  04
+1BB0:  MOVWF  6D
+1BB2:  CALL   0C7A
+1BB6:  MOVFF  32,6D
+1BBA:  MOVLW  03
+1BBC:  MOVWF  6E
+1BBE:  CALL   0E1E
+1BC2:  MOVLW  12
+1BC4:  MOVWF  FF6
+1BC6:  MOVLW  02
+1BC8:  MOVWF  FF7
+1BCA:  MOVLW  06
+1BCC:  MOVWF  6D
+1BCE:  CALL   0C7A
+1BD2:  MOVFF  33,6D
+1BD6:  MOVLW  03
+1BD8:  MOVWF  6E
+1BDA:  CALL   0E1E
+....................         controle++; 
+1BDE:  INCF   5B,F
+....................       } 
+....................       if(controledestring==3) 
+1BE0:  MOVF   58,W
+1BE2:  SUBLW  03
+1BE4:  BNZ   1C42
+....................       { 
+....................         lcd_pos_xy(1,1); 
+1BE6:  MOVLW  01
+1BE8:  MOVWF  7B
+1BEA:  MOVWF  7C
+1BEC:  CALL   08BA
+....................         printf (lcd_escreve, "Umid. Ar    Reg.");  
+1BF0:  MOVLW  1E
+1BF2:  MOVWF  FF6
+1BF4:  MOVLW  02
+1BF6:  MOVWF  FF7
+1BF8:  CALL   0924
+....................         lcd_pos_xy(1,2); 
+1BFC:  MOVLW  01
+1BFE:  MOVWF  7B
+1C00:  MOVLW  02
+1C02:  MOVWF  7C
+1C04:  CALL   08BA
+....................         printf (lcd_escreve, "Min:%03u  Max:%03u",RHarminimoregistrado,RHarmaximoregistrado); 
+1C08:  MOVLW  30
+1C0A:  MOVWF  FF6
+1C0C:  MOVLW  02
+1C0E:  MOVWF  FF7
+1C10:  MOVLW  04
+1C12:  MOVWF  6D
+1C14:  CALL   0C7A
+1C18:  MOVFF  42,6D
+1C1C:  MOVLW  03
+1C1E:  MOVWF  6E
+1C20:  CALL   0E1E
+1C24:  MOVLW  38
+1C26:  MOVWF  FF6
+1C28:  MOVLW  02
+1C2A:  MOVWF  FF7
+1C2C:  MOVLW  06
+1C2E:  MOVWF  6D
+1C30:  CALL   0C7A
+1C34:  MOVFF  43,6D
+1C38:  MOVLW  03
+1C3A:  MOVWF  6E
+1C3C:  CALL   0E1E
+....................         controle++; 
+1C40:  INCF   5B,F
+....................       } 
+....................       if(controledestring==4) 
+1C42:  MOVF   58,W
+1C44:  SUBLW  04
+1C46:  BNZ   1CC2
+....................       { 
+....................         lcd_pos_xy(5,1); 
+1C48:  MOVLW  05
+1C4A:  MOVWF  7B
+1C4C:  MOVLW  01
+1C4E:  MOVWF  7C
+1C50:  CALL   08BA
+....................         printf(lcd_escreve,"%02u:%02u:%02u         ",H,M,S); 
+1C54:  MOVFF  52,6D
+1C58:  MOVLW  01
+1C5A:  MOVWF  6E
+1C5C:  CALL   0E1E
+1C60:  MOVLW  3A
+1C62:  MOVWF  7A
+1C64:  CALL   08DC
+1C68:  MOVFF  53,6D
+1C6C:  MOVLW  01
+1C6E:  MOVWF  6E
+1C70:  CALL   0E1E
+1C74:  MOVLW  3A
+1C76:  MOVWF  7A
+1C78:  CALL   08DC
+1C7C:  MOVFF  54,6D
+1C80:  MOVLW  01
+1C82:  MOVWF  6E
+1C84:  CALL   0E1E
+1C88:  MOVLW  52
+1C8A:  MOVWF  FF6
+1C8C:  MOVLW  02
+1C8E:  MOVWF  FF7
+1C90:  MOVLW  09
+1C92:  MOVWF  6D
+1C94:  CALL   0C7A
+....................         lcd_pos_xy(1,2); 
+1C98:  MOVLW  01
+1C9A:  MOVWF  7B
+1C9C:  MOVLW  02
+1C9E:  MOVWF  7C
+1CA0:  CALL   08BA
+....................         printf(lcd_escreve,"Reg. Alertas: %02d",memoriadosErros); 
+1CA4:  MOVLW  5C
+1CA6:  MOVWF  FF6
+1CA8:  MOVLW  02
+1CAA:  MOVWF  FF7
+1CAC:  MOVLW  0E
+1CAE:  MOVWF  6D
+1CB0:  CALL   0C7A
+1CB4:  MOVFF  64,6D
+1CB8:  MOVLW  01
+1CBA:  MOVWF  6E
+1CBC:  CALL   0D74
+....................         controle++; 
+1CC0:  INCF   5B,F
+....................       } 
+....................       
+.................... //....................................................................................................................      
+....................      //STRINGS PARA OS ACIONAMENTOS 
+....................       if(!input(pin_c0)&&verificateclaC0==0&&controledestring==0&&teclapressionadaMenu<4) 
+1CC2:  BSF    F94.0
+1CC4:  BTFSC  F82.0
+1CC6:  BRA    1CDA
+1CC8:  BTFSC  68.2
+1CCA:  BRA    1CDA
+1CCC:  MOVF   58,F
+1CCE:  BNZ   1CDA
+1CD0:  MOVF   61,W
+1CD2:  SUBLW  03
+1CD4:  BNC   1CDA
+....................       { 
+....................         teclapressionadaMenu++; 
+1CD6:  INCF   61,F
+....................         controle=0; 
+1CD8:  CLRF   5B
+....................       }  
+....................       if(!input(pin_c0)) 
+1CDA:  BSF    F94.0
+1CDC:  BTFSC  F82.0
+1CDE:  BRA    1CE4
+....................       { 
+....................         verificateclaC0=1; 
+1CE0:  BSF    68.2
+....................       } else verificateclac0=0;  
+1CE2:  BRA    1CE6
+1CE4:  BCF    68.2
+....................       if(teclapressionadaMenu==1) 
+1CE6:  DECFSZ 61,W
+1CE8:  BRA    1CF6
+....................       { 
+....................        controledestring2=1; 
+1CEA:  MOVLW  01
+1CEC:  MOVWF  59
+....................        lcd_escreve ('\f'); 
+1CEE:  MOVLW  0C
+1CF0:  MOVWF  7A
+1CF2:  CALL   08DC
+....................       } 
+....................       if(teclapressionadaMenu==2) 
+1CF6:  MOVF   61,W
+1CF8:  SUBLW  02
+1CFA:  BNZ   1D08
+....................       { 
+....................        controledestring2=2; 
+1CFC:  MOVLW  02
+1CFE:  MOVWF  59
+....................        lcd_escreve ('\f'); 
+1D00:  MOVLW  0C
+1D02:  MOVWF  7A
+1D04:  CALL   08DC
+....................       } 
+....................       if(teclapressionadaMenu==3) 
+1D08:  MOVF   61,W
+1D0A:  SUBLW  03
+1D0C:  BNZ   1D1A
+....................       { 
+....................        controledestring2=3; 
+1D0E:  MOVLW  03
+1D10:  MOVWF  59
+....................        lcd_escreve ('\f'); 
+1D12:  MOVLW  0C
+1D14:  MOVWF  7A
+1D16:  CALL   08DC
+....................       } 
+....................       if(teclapressionadaMenu==4) 
+1D1A:  MOVF   61,W
+1D1C:  SUBLW  04
+1D1E:  BNZ   1D2C
+....................       { 
+....................        controledestring2=4; 
+1D20:  MOVLW  04
+1D22:  MOVWF  59
+....................        lcd_escreve ('\f'); 
+1D24:  MOVLW  0C
+1D26:  MOVWF  7A
+1D28:  CALL   08DC
+....................       } 
+....................        
+....................       if(controledestring2==1) 
+1D2C:  DECFSZ 59,W
+1D2E:  BRA    1D80
+....................       { 
+....................         lcd_pos_xy(1,1); 
+1D30:  MOVLW  01
+1D32:  MOVWF  7B
+1D34:  MOVWF  7C
+1D36:  CALL   08BA
+....................         printf (lcd_escreve, "Aquecimento");  
+1D3A:  MOVLW  70
+1D3C:  MOVWF  FF6
+1D3E:  MOVLW  02
+1D40:  MOVWF  FF7
+1D42:  CALL   0924
+....................         if(Mododoaquecedor==0) 
+1D46:  BTFSC  24.0
+1D48:  BRA    1D62
+....................         { 
+....................          lcd_pos_xy(1,2); 
+1D4A:  MOVLW  01
+1D4C:  MOVWF  7B
+1D4E:  MOVLW  02
+1D50:  MOVWF  7C
+1D52:  CALL   08BA
+....................          printf (lcd_escreve, "Modo: Automatico"); 
+1D56:  MOVLW  7C
+1D58:  MOVWF  FF6
+1D5A:  MOVLW  02
+1D5C:  MOVWF  FF7
+1D5E:  CALL   0924
+....................         } 
+....................         if(Mododoaquecedor==1) 
+1D62:  BTFSS  24.0
+1D64:  BRA    1D7E
+....................         { 
+....................          lcd_pos_xy(1,2); 
+1D66:  MOVLW  01
+1D68:  MOVWF  7B
+1D6A:  MOVLW  02
+1D6C:  MOVWF  7C
+1D6E:  CALL   08BA
+....................          printf (lcd_escreve, "Modo: Ligado    "); 
+1D72:  MOVLW  8E
+1D74:  MOVWF  FF6
+1D76:  MOVLW  02
+1D78:  MOVWF  FF7
+1D7A:  CALL   0924
+....................         } 
+....................         controle++; 
+1D7E:  INCF   5B,F
+....................       } 
+....................       if(controledestring2==2) 
+1D80:  MOVF   59,W
+1D82:  SUBLW  02
+1D84:  BNZ   1DD6
+....................       { 
+....................         lcd_pos_xy(1,1); 
+1D86:  MOVLW  01
+1D88:  MOVWF  7B
+1D8A:  MOVWF  7C
+1D8C:  CALL   08BA
+....................         printf (lcd_escreve, "Resfriamento");  
+1D90:  MOVLW  A0
+1D92:  MOVWF  FF6
+1D94:  MOVLW  02
+1D96:  MOVWF  FF7
+1D98:  CALL   0924
+....................         if(Mododoresfriador==0) 
+1D9C:  BTFSC  24.1
+1D9E:  BRA    1DB8
+....................         { 
+....................          lcd_pos_xy(1,2); 
+1DA0:  MOVLW  01
+1DA2:  MOVWF  7B
+1DA4:  MOVLW  02
+1DA6:  MOVWF  7C
+1DA8:  CALL   08BA
+....................          printf (lcd_escreve, "Modo: Automatico"); 
+1DAC:  MOVLW  AE
+1DAE:  MOVWF  FF6
+1DB0:  MOVLW  02
+1DB2:  MOVWF  FF7
+1DB4:  CALL   0924
+....................         } 
+....................         if(Mododoresfriador==1) 
+1DB8:  BTFSS  24.1
+1DBA:  BRA    1DD4
+....................         { 
+....................          lcd_pos_xy(1,2); 
+1DBC:  MOVLW  01
+1DBE:  MOVWF  7B
+1DC0:  MOVLW  02
+1DC2:  MOVWF  7C
+1DC4:  CALL   08BA
+....................          printf (lcd_escreve, "Modo: Ligado    "); 
+1DC8:  MOVLW  C0
+1DCA:  MOVWF  FF6
+1DCC:  MOVLW  02
+1DCE:  MOVWF  FF7
+1DD0:  CALL   0924
+....................         } 
+....................         controle++; 
+1DD4:  INCF   5B,F
+....................       } 
+....................       if(controledestring2==3) 
+1DD6:  MOVF   59,W
+1DD8:  SUBLW  03
+1DDA:  BNZ   1E2C
+....................       {  
+....................         lcd_pos_xy(1,1); 
+1DDC:  MOVLW  01
+1DDE:  MOVWF  7B
+1DE0:  MOVWF  7C
+1DE2:  CALL   08BA
+....................         printf (lcd_escreve, "Umidificacao"); 
+1DE6:  MOVLW  D2
+1DE8:  MOVWF  FF6
+1DEA:  MOVLW  02
+1DEC:  MOVWF  FF7
+1DEE:  CALL   0924
+....................         if(Mododoumidificador==0) 
+1DF2:  BTFSC  24.6
+1DF4:  BRA    1E0E
+....................         { 
+....................          lcd_pos_xy(1,2); 
+1DF6:  MOVLW  01
+1DF8:  MOVWF  7B
+1DFA:  MOVLW  02
+1DFC:  MOVWF  7C
+1DFE:  CALL   08BA
+....................          printf (lcd_escreve, "Modo: Automatico"); 
+1E02:  MOVLW  E0
+1E04:  MOVWF  FF6
+1E06:  MOVLW  02
+1E08:  MOVWF  FF7
+1E0A:  CALL   0924
+....................         } 
+....................         if(Mododoumidificador==1) 
+1E0E:  BTFSS  24.6
+1E10:  BRA    1E2A
+....................         { 
+....................          lcd_pos_xy(1,2); 
+1E12:  MOVLW  01
+1E14:  MOVWF  7B
+1E16:  MOVLW  02
+1E18:  MOVWF  7C
+1E1A:  CALL   08BA
+....................          printf (lcd_escreve, "Modo: Ligado    "); 
+1E1E:  MOVLW  F2
+1E20:  MOVWF  FF6
+1E22:  MOVLW  02
+1E24:  MOVWF  FF7
+1E26:  CALL   0924
+....................         } 
+....................         controle++; 
+1E2A:  INCF   5B,F
+....................       } 
+....................       if(controledestring2==4) 
+1E2C:  MOVF   59,W
+1E2E:  SUBLW  04
+1E30:  BNZ   1EA0
+....................       { 
+....................         lcd_pos_xy(1,1); 
+1E32:  MOVLW  01
+1E34:  MOVWF  7B
+1E36:  MOVWF  7C
+1E38:  CALL   08BA
+....................         printf (lcd_escreve, "Irrigacao");  
+1E3C:  MOVLW  04
+1E3E:  MOVWF  FF6
+1E40:  MOVLW  03
+1E42:  MOVWF  FF7
+1E44:  CALL   0924
+....................         if(Mododabomba==0) 
+1E48:  MOVF   35,F
+1E4A:  BNZ   1E64
+....................         { 
+....................          lcd_pos_xy(1,2); 
+1E4C:  MOVLW  01
+1E4E:  MOVWF  7B
+1E50:  MOVLW  02
+1E52:  MOVWF  7C
+1E54:  CALL   08BA
+....................          printf (lcd_escreve, "Modo: Automatico"); 
+1E58:  MOVLW  0E
+1E5A:  MOVWF  FF6
+1E5C:  MOVLW  03
+1E5E:  MOVWF  FF7
+1E60:  CALL   0924
+....................         } 
+....................         if(Mododabomba==1) 
+1E64:  DECFSZ 35,W
+1E66:  BRA    1E80
+....................         { 
+....................          lcd_pos_xy(1,2); 
+1E68:  MOVLW  01
+1E6A:  MOVWF  7B
+1E6C:  MOVLW  02
+1E6E:  MOVWF  7C
+1E70:  CALL   08BA
+....................          printf (lcd_escreve, "Modo: Ligado    "); 
+1E74:  MOVLW  20
+1E76:  MOVWF  FF6
+1E78:  MOVLW  03
+1E7A:  MOVWF  FF7
+1E7C:  CALL   0924
+....................         } 
+....................         if(Mododabomba==2) 
+1E80:  MOVF   35,W
+1E82:  SUBLW  02
+1E84:  BNZ   1E9E
+....................         { 
+....................          lcd_pos_xy(1,2); 
+1E86:  MOVLW  01
+1E88:  MOVWF  7B
+1E8A:  MOVLW  02
+1E8C:  MOVWF  7C
+1E8E:  CALL   08BA
+....................          printf (lcd_escreve, "Modo: Timer     "); 
+1E92:  MOVLW  32
+1E94:  MOVWF  FF6
+1E96:  MOVLW  03
+1E98:  MOVWF  FF7
+1E9A:  CALL   0924
+....................         } 
+....................         controle++; 
+1E9E:  INCF   5B,F
+....................       } 
+....................       if(Mododoaquecedor==1) 
+1EA0:  BTFSS  24.0
+1EA2:  BRA    1EA8
+....................       { 
+....................        output_high(pin_D2); 
+1EA4:  BCF    F95.2
+1EA6:  BSF    F8C.2
+....................       }  
+....................       if(Mododoaquecedor==0&&aquec_aut==0) 
+1EA8:  BTFSC  24.0
+1EAA:  BRA    1EB4
+1EAC:  BTFSC  24.2
+1EAE:  BRA    1EB4
+....................       { 
+....................        output_low(pin_D2); 
+1EB0:  BCF    F95.2
+1EB2:  BCF    F8C.2
+....................       }  
+....................       if(Mododoresfriador==1) 
+1EB4:  BTFSS  24.1
+1EB6:  BRA    1EBC
+....................       { 
+....................        output_high(pin_D3); 
+1EB8:  BCF    F95.3
+1EBA:  BSF    F8C.3
+....................       }  
+....................       if(mododoresfriador==0&&resfr_aut==0) 
+1EBC:  BTFSC  24.1
+1EBE:  BRA    1EC8
+1EC0:  BTFSC  24.3
+1EC2:  BRA    1EC8
+....................       { 
+....................        output_low(pin_D3); 
+1EC4:  BCF    F95.3
+1EC6:  BCF    F8C.3
+....................       }  
+....................       if(Mododoumidificador==1&&erro1==0) 
+1EC8:  BTFSS  24.6
+1ECA:  BRA    1ED4
+1ECC:  BTFSC  24.7
+1ECE:  BRA    1ED4
+....................       { 
+....................        output_high(pin_D5); 
+1ED0:  BCF    F95.5
+1ED2:  BSF    F8C.5
+....................       }  
+....................       if(mododoumidificador==0&&tempo_off_2>0) 
+1ED4:  BTFSC  24.6
+1ED6:  BRA    1EE4
+1ED8:  MOVF   46,F
+1EDA:  BNZ   1EE0
+1EDC:  MOVF   47,F
+1EDE:  BZ    1EE4
+....................       { 
+....................        output_low(pin_D5); 
+1EE0:  BCF    F95.5
+1EE2:  BCF    F8C.5
+....................       } 
+....................       if(mododoumidificador==0&&tempo_on_2==0) 
+1EE4:  BTFSC  24.6
+1EE6:  BRA    1EF4
+1EE8:  MOVF   44,F
+1EEA:  BNZ   1EF4
+1EEC:  MOVF   45,F
+1EEE:  BNZ   1EF4
+....................       { 
+....................        output_low(pin_D5); 
+1EF0:  BCF    F95.5
+1EF2:  BCF    F8C.5
+....................       }  
+....................       if(Mododabomba==1&&erro1==0) 
+1EF4:  DECFSZ 35,W
+1EF6:  BRA    1F00
+1EF8:  BTFSC  24.7
+1EFA:  BRA    1F00
+....................       { 
+....................        output_high(pin_D4); 
+1EFC:  BCF    F95.4
+1EFE:  BSF    F8C.4
+....................       }  
+....................       if(mododabomba==0&&tempo_off>0) 
+1F00:  MOVF   35,F
+1F02:  BNZ   1F10
+1F04:  MOVF   2B,F
+1F06:  BNZ   1F0C
+1F08:  MOVF   2C,F
+1F0A:  BZ    1F10
+....................       { 
+....................        output_low(pin_D4); 
+1F0C:  BCF    F95.4
+1F0E:  BCF    F8C.4
+....................       } 
+....................       if(mododabomba==0&&tempo_on==0) 
+1F10:  MOVF   35,F
+1F12:  BNZ   1F20
+1F14:  MOVF   29,F
+1F16:  BNZ   1F20
+1F18:  MOVF   2A,F
+1F1A:  BNZ   1F20
+....................       { 
+....................        output_low(pin_D4); 
+1F1C:  BCF    F95.4
+1F1E:  BCF    F8C.4
+....................       }  
+....................       if(!input(pin_c1)&&controledestring2==1) 
+1F20:  BSF    F94.1
+1F22:  BTFSC  F82.1
+1F24:  BRA    1F2C
+1F26:  DECFSZ 59,W
+1F28:  BRA    1F2C
+....................       { 
+....................         Mododoaquecedor=1; 
+1F2A:  BSF    24.0
+....................       } 
+....................       if(!input(pin_c1)&&controledestring2==2) 
+1F2C:  BSF    F94.1
+1F2E:  BTFSC  F82.1
+1F30:  BRA    1F3A
+1F32:  MOVF   59,W
+1F34:  SUBLW  02
+1F36:  BNZ   1F3A
+....................       { 
+....................         Mododoresfriador=1; 
+1F38:  BSF    24.1
+....................       } 
+....................       if(!input(pin_c1)&&controledestring2==3&&erro1==0) 
+1F3A:  BSF    F94.1
+1F3C:  BTFSC  F82.1
+1F3E:  BRA    1F54
+1F40:  MOVF   59,W
+1F42:  SUBLW  03
+1F44:  BNZ   1F54
+1F46:  BTFSC  24.7
+1F48:  BRA    1F54
+....................       { 
+....................         Mododoumidificador=1; 
+1F4A:  BSF    24.6
+....................         tempo_on_2=0; 
+1F4C:  CLRF   45
+1F4E:  CLRF   44
+....................         tempo_off_2=0; 
+1F50:  CLRF   47
+1F52:  CLRF   46
+....................       } 
+....................       if(!input(pin_c1)&&controledestring2==4&&timerdabomba==0&&erro1==0) 
+1F54:  BSF    F94.1
+1F56:  BTFSC  F82.1
+1F58:  BRA    1F74
+1F5A:  MOVF   59,W
+1F5C:  SUBLW  04
+1F5E:  BNZ   1F74
+1F60:  BTFSC  24.4
+1F62:  BRA    1F74
+1F64:  BTFSC  24.7
+1F66:  BRA    1F74
+....................       { 
+....................         Mododabomba=1; 
+1F68:  MOVLW  01
+1F6A:  MOVWF  35
+....................         tempo_on=0; 
+1F6C:  CLRF   2A
+1F6E:  CLRF   29
+....................         tempo_off=0; 
+1F70:  CLRF   2C
+1F72:  CLRF   2B
+....................       } 
+....................        
+....................       if(!input(pin_c2)&&controledestring2==1) 
+1F74:  BSF    F94.2
+1F76:  BTFSC  F82.2
+1F78:  BRA    1F80
+1F7A:  DECFSZ 59,W
+1F7C:  BRA    1F80
+....................       { 
+....................         Mododoaquecedor=0; 
+1F7E:  BCF    24.0
+....................       } 
+....................       if(!input(pin_c2)&&controledestring2==2) 
+1F80:  BSF    F94.2
+1F82:  BTFSC  F82.2
+1F84:  BRA    1F8E
+1F86:  MOVF   59,W
+1F88:  SUBLW  02
+1F8A:  BNZ   1F8E
+....................       { 
+....................         Mododoresfriador=0; 
+1F8C:  BCF    24.1
+....................       } 
+....................       if(!input(pin_c2)&&controledestring2==3) 
+1F8E:  BSF    F94.2
+1F90:  BTFSC  F82.2
+1F92:  BRA    1F9C
+1F94:  MOVF   59,W
+1F96:  SUBLW  03
+1F98:  BNZ   1F9C
+....................       { 
+....................         Mododoumidificador=0; 
+1F9A:  BCF    24.6
+....................       } 
+....................       if(!input(pin_c2)&&controledestring2==4&&timerdabomba==0) 
+1F9C:  BSF    F94.2
+1F9E:  BTFSC  F82.2
+1FA0:  BRA    1FAE
+1FA2:  MOVF   59,W
+1FA4:  SUBLW  04
+1FA6:  BNZ   1FAE
+1FA8:  BTFSC  24.4
+1FAA:  BRA    1FAE
+....................       { 
+....................         Mododabomba=0; 
+1FAC:  CLRF   35
+....................       } 
+....................        
+....................       if(controle>=150||!input(pin_c3)) 
+1FAE:  MOVF   5B,W
+1FB0:  SUBLW  95
+1FB2:  BNC   1FBA
+1FB4:  BSF    F94.3
+1FB6:  BTFSC  F82.3
+1FB8:  BRA    1FC8
+....................       { 
+....................        controledestring=0; 
+1FBA:  CLRF   58
+....................        controledestring2=0; 
+1FBC:  CLRF   59
+....................        verificateclaC1=0; 
+1FBE:  BCF    68.1
+....................        teclapressionada=0; 
+1FC0:  CLRF   60
+....................        verificateclaC0=0; 
+1FC2:  BCF    68.2
+....................        teclapressionadaMenu=0; 
+1FC4:  CLRF   61
+....................        controle=0; 
+1FC6:  CLRF   5B
+....................       } 
+.................... //.........................................................................................................      
+....................       
+....................        //2-LEITURA DOS SENSORES       
+....................       //LEITURA DE TEMPERATURA 
+....................       set_ADC_channel(0); 
+1FC8:  MOVLW  00
+1FCA:  MOVWF  01
+1FCC:  MOVF   FC2,W
+1FCE:  ANDLW  C7
+1FD0:  IORWF  01,W
+1FD2:  MOVWF  FC2
+....................       delay_us(20); 
+1FD4:  MOVLW  1A
+1FD6:  MOVWF  00
+1FD8:  DECFSZ 00,F
+1FDA:  BRA    1FD8
+1FDC:  NOP   
+....................       mediaADtpt=0; valor=0; tensao=0; 
+1FDE:  CLRF   1F
+1FE0:  CLRF   1E
+1FE2:  CLRF   51
+1FE4:  CLRF   50
+1FE6:  CLRF   4F
+1FE8:  CLRF   4E
+1FEA:  CLRF   4D
+1FEC:  CLRF   4C
+....................       for(rep=1; rep<=8; rep++) 
+1FEE:  MOVLW  01
+1FF0:  MOVWF  57
+1FF2:  MOVF   57,W
+1FF4:  SUBLW  08
+1FF6:  BNC   201A
+....................       { 
+....................         valor= read_adc(); 
+1FF8:  BSF    FC2.2
+1FFA:  BTFSC  FC2.2
+1FFC:  BRA    1FFA
+1FFE:  MOVFF  FC3,50
+2002:  MOVFF  FC4,51
+....................         delay_ms(4); 
+2006:  MOVLW  04
+2008:  MOVWF  7B
+200A:  CALL   07C6
+....................         mediaADtpt= mediaADtpt + valor; 
+200E:  MOVF   50,W
+2010:  ADDWF  1E,F
+2012:  MOVF   51,W
+2014:  ADDWFC 1F,F
+....................       } 
+2016:  INCF   57,F
+2018:  BRA    1FF2
+....................       mediaADtpt= mediaADtpt/8; 
+201A:  RRCF   1F,F
+201C:  RRCF   1E,F
+201E:  RRCF   1F,F
+2020:  RRCF   1E,F
+2022:  RRCF   1F,F
+2024:  RRCF   1E,F
+2026:  MOVLW  1F
+2028:  ANDWF  1F,F
+....................       tensao=(float)mediaADtpt*4.883; 
+202A:  MOVFF  1F,6E
+202E:  MOVFF  1E,6D
+2032:  CALL   0E84
+2036:  MOVFF  00,6D
+203A:  MOVFF  01,6E
+203E:  MOVFF  02,6F
+2042:  MOVFF  03,70
+2046:  MOVFF  03,7D
+204A:  MOVFF  02,7C
+204E:  MOVFF  01,7B
+2052:  MOVFF  00,7A
+2056:  MOVLW  89
+2058:  MOVWF  x81
+205A:  MOVLW  41
+205C:  MOVWF  x80
+205E:  MOVLW  1C
+2060:  MOVWF  7F
+2062:  MOVLW  81
+2064:  MOVWF  7E
+2066:  CALL   0944
+206A:  MOVFF  03,4F
+206E:  MOVFF  02,4E
+2072:  MOVFF  01,4D
+2076:  MOVFF  00,4C
+....................       Temperatura=(float) tensao/57.7394; 
+207A:  MOVFF  4F,74
+207E:  MOVFF  4E,73
+2082:  MOVFF  4D,72
+2086:  MOVFF  4C,71
+208A:  MOVLW  25
+208C:  MOVWF  78
+208E:  MOVLW  F5
+2090:  MOVWF  77
+2092:  MOVLW  66
+2094:  MOVWF  76
+2096:  MOVLW  84
+2098:  MOVWF  75
+209A:  CALL   0EBA
+209E:  MOVFF  03,1D
+20A2:  MOVFF  02,1C
+20A6:  MOVFF  01,1B
+20AA:  MOVFF  00,1A
+....................        
+....................    
+....................        
+....................       //LEITURA DE UMIDADE DO SOLO(RHsolo) 
+....................       set_ADC_channel(1); 
+20AE:  MOVLW  08
+20B0:  MOVWF  01
+20B2:  MOVF   FC2,W
+20B4:  ANDLW  C7
+20B6:  IORWF  01,W
+20B8:  MOVWF  FC2
+....................       delay_us(20); 
+20BA:  MOVLW  1A
+20BC:  MOVWF  00
+20BE:  DECFSZ 00,F
+20C0:  BRA    20BE
+20C2:  NOP   
+....................       mediaADRHsolo=0; valor=0; tensao=0; 
+20C4:  CLRF   2E
+20C6:  CLRF   2D
+20C8:  CLRF   51
+20CA:  CLRF   50
+20CC:  CLRF   4F
+20CE:  CLRF   4E
+20D0:  CLRF   4D
+20D2:  CLRF   4C
+....................       for(rep=1; rep<=8; rep++) 
+20D4:  MOVLW  01
+20D6:  MOVWF  57
+20D8:  MOVF   57,W
+20DA:  SUBLW  08
+20DC:  BNC   2108
+....................       { 
+....................         valor= read_adc(); 
+20DE:  BSF    FC2.2
+20E0:  BTFSC  FC2.2
+20E2:  BRA    20E0
+20E4:  MOVFF  FC3,50
+20E8:  MOVFF  FC4,51
+....................         delay_us(4100); 
+20EC:  MOVLW  04
+20EE:  MOVWF  7B
+20F0:  CALL   07C6
+20F4:  MOVLW  64
+20F6:  MOVWF  6D
+20F8:  GOTO   1014
+....................         mediaADRHsolo= mediaADRHsolo + valor; 
+20FC:  MOVF   50,W
+20FE:  ADDWF  2D,F
+2100:  MOVF   51,W
+2102:  ADDWFC 2E,F
+....................       } 
+2104:  INCF   57,F
+2106:  BRA    20D8
+....................       mediaADRHsolo= mediaADRHsolo/8; 
+2108:  RRCF   2E,F
+210A:  RRCF   2D,F
+210C:  RRCF   2E,F
+210E:  RRCF   2D,F
+2110:  RRCF   2E,F
+2112:  RRCF   2D,F
+2114:  MOVLW  1F
+2116:  ANDWF  2E,F
+....................       tensao=(float) mediaADRHsolo*4.883; 
+2118:  MOVFF  2E,6E
+211C:  MOVFF  2D,6D
+2120:  CALL   0E84
+2124:  MOVFF  00,6D
+2128:  MOVFF  01,6E
+212C:  MOVFF  02,6F
+2130:  MOVFF  03,70
+2134:  MOVFF  03,7D
+2138:  MOVFF  02,7C
+213C:  MOVFF  01,7B
+2140:  MOVFF  00,7A
+2144:  MOVLW  89
+2146:  MOVWF  x81
+2148:  MOVLW  41
+214A:  MOVWF  x80
+214C:  MOVLW  1C
+214E:  MOVWF  7F
+2150:  MOVLW  81
+2152:  MOVWF  7E
+2154:  CALL   0944
+2158:  MOVFF  03,4F
+215C:  MOVFF  02,4E
+2160:  MOVFF  01,4D
+2164:  MOVFF  00,4C
+....................       RHsolo=(float)(tensao-1100)/39; 
+2168:  BSF    FD8.1
+216A:  MOVFF  4F,70
+216E:  MOVFF  4E,6F
+2172:  MOVFF  4D,6E
+2176:  MOVFF  4C,6D
+217A:  CLRF   74
+217C:  MOVLW  80
+217E:  MOVWF  73
+2180:  MOVLW  09
+2182:  MOVWF  72
+2184:  MOVLW  89
+2186:  MOVWF  71
+2188:  CALL   1030
+218C:  MOVFF  00,6D
+2190:  MOVFF  01,6E
+2194:  MOVFF  02,6F
+2198:  MOVFF  03,70
+219C:  MOVFF  03,74
+21A0:  MOVFF  02,73
+21A4:  MOVFF  01,72
+21A8:  MOVFF  00,71
+21AC:  CLRF   78
+21AE:  CLRF   77
+21B0:  MOVLW  1C
+21B2:  MOVWF  76
+21B4:  MOVLW  84
+21B6:  MOVWF  75
+21B8:  CALL   0EBA
+21BC:  MOVFF  03,28
+21C0:  MOVFF  02,27
+21C4:  MOVFF  01,26
+21C8:  MOVFF  00,25
+....................       RHsolo=(float)100 - RHsolo; 
+21CC:  BSF    FD8.1
+21CE:  CLRF   70
+21D0:  CLRF   6F
+21D2:  MOVLW  48
+21D4:  MOVWF  6E
+21D6:  MOVLW  85
+21D8:  MOVWF  6D
+21DA:  MOVFF  28,74
+21DE:  MOVFF  27,73
+21E2:  MOVFF  26,72
+21E6:  MOVFF  25,71
+21EA:  CALL   1030
+21EE:  MOVFF  03,28
+21F2:  MOVFF  02,27
+21F6:  MOVFF  01,26
+21FA:  MOVFF  00,25
+....................        
+....................       //LEITURA DE UMIDADE DO AR(RHar) 
+....................       set_ADC_channel(3); 
+21FE:  MOVLW  18
+2200:  MOVWF  01
+2202:  MOVF   FC2,W
+2204:  ANDLW  C7
+2206:  IORWF  01,W
+2208:  MOVWF  FC2
+....................       delay_us(20); 
+220A:  MOVLW  1A
+220C:  MOVWF  00
+220E:  DECFSZ 00,F
+2210:  BRA    220E
+2212:  NOP   
+....................       mediaADRHar=0; valor=0; tensao=0; 
+2214:  CLRF   40
+2216:  CLRF   3F
+2218:  CLRF   51
+221A:  CLRF   50
+221C:  CLRF   4F
+221E:  CLRF   4E
+2220:  CLRF   4D
+2222:  CLRF   4C
+....................       for(rep=1; rep<=9; rep++) 
+2224:  MOVLW  01
+2226:  MOVWF  57
+2228:  MOVF   57,W
+222A:  SUBLW  09
+222C:  BNC   2250
+....................       { 
+....................         valor= read_adc(); 
+222E:  BSF    FC2.2
+2230:  BTFSC  FC2.2
+2232:  BRA    2230
+2234:  MOVFF  FC3,50
+2238:  MOVFF  FC4,51
+....................         delay_ms(4); 
+223C:  MOVLW  04
+223E:  MOVWF  7B
+2240:  CALL   07C6
+....................         mediaADRHar= mediaADRHar + valor; 
+2244:  MOVF   50,W
+2246:  ADDWF  3F,F
+2248:  MOVF   51,W
+224A:  ADDWFC 40,F
+....................       } 
+224C:  INCF   57,F
+224E:  BRA    2228
+....................       mediaADRHar= mediaADRHar/9; 
+2250:  MOVFF  40,6E
+2254:  MOVFF  3F,6D
+2258:  CLRF   70
+225A:  MOVLW  09
+225C:  MOVWF  6F
+225E:  GOTO   129A
+2262:  MOVFF  02,40
+2266:  MOVFF  01,3F
+....................       tensao=(float) mediaADRHar*4.883; 
+226A:  MOVFF  40,6E
+226E:  MOVFF  3F,6D
+2272:  CALL   0E84
+2276:  MOVFF  00,6D
+227A:  MOVFF  01,6E
+227E:  MOVFF  02,6F
+2282:  MOVFF  03,70
+2286:  MOVFF  03,7D
+228A:  MOVFF  02,7C
+228E:  MOVFF  01,7B
+2292:  MOVFF  00,7A
+2296:  MOVLW  89
+2298:  MOVWF  x81
+229A:  MOVLW  41
+229C:  MOVWF  x80
+229E:  MOVLW  1C
+22A0:  MOVWF  7F
+22A2:  MOVLW  81
+22A4:  MOVWF  7E
+22A6:  CALL   0944
+22AA:  MOVFF  03,4F
+22AE:  MOVFF  02,4E
+22B2:  MOVFF  01,4D
+22B6:  MOVFF  00,4C
+....................       RHar=(float)(tensao-840)/31; 
+22BA:  BSF    FD8.1
+22BC:  MOVFF  4F,70
+22C0:  MOVFF  4E,6F
+22C4:  MOVFF  4D,6E
+22C8:  MOVFF  4C,6D
+22CC:  CLRF   74
+22CE:  CLRF   73
+22D0:  MOVLW  52
+22D2:  MOVWF  72
+22D4:  MOVLW  88
+22D6:  MOVWF  71
+22D8:  CALL   1030
+22DC:  MOVFF  00,6D
+22E0:  MOVFF  01,6E
+22E4:  MOVFF  02,6F
+22E8:  MOVFF  03,70
+22EC:  MOVFF  03,74
+22F0:  MOVFF  02,73
+22F4:  MOVFF  01,72
+22F8:  MOVFF  00,71
+22FC:  CLRF   78
+22FE:  CLRF   77
+2300:  MOVLW  78
+2302:  MOVWF  76
+2304:  MOVLW  83
+2306:  MOVWF  75
+2308:  CALL   0EBA
+230C:  MOVFF  03,3E
+2310:  MOVFF  02,3D
+2314:  MOVFF  01,3C
+2318:  MOVFF  00,3B
+.................... //.....................................................................................................      
+....................        
+....................        //3-REGISTRO DE VALORES MINIMOS E MAXIMOS    
+....................       //Temperatura 
+....................       if(Temperatura<Temperaturaminimaregistrada||!input(pin_c2)&&controledestring==1) 
+231C:  CLRF   6E
+231E:  MOVFF  22,6D
+2322:  CALL   0E84
+2326:  MOVFF  1D,70
+232A:  MOVFF  1C,6F
+232E:  MOVFF  1B,6E
+2332:  MOVFF  1A,6D
+2336:  MOVFF  03,74
+233A:  MOVFF  02,73
+233E:  MOVFF  01,72
+2342:  MOVFF  00,71
+2346:  CALL   12DE
+234A:  BC    2356
+234C:  BSF    F94.2
+234E:  BTFSC  F82.2
+2350:  BRA    236E
+2352:  DECFSZ 58,W
+2354:  BRA    236E
+....................       { 
+....................         Temperaturaminimaregistrada=Temperatura; 
+2356:  MOVFF  1D,70
+235A:  MOVFF  1C,6F
+235E:  MOVFF  1B,6E
+2362:  MOVFF  1A,6D
+2366:  CALL   1354
+236A:  MOVFF  01,22
+....................       } 
+....................       if(Temperatura>Temperaturamaximaregistrada||!input(pin_c2)&&controledestring==1) 
+236E:  CLRF   6E
+2370:  MOVFF  23,6D
+2374:  CALL   0E84
+2378:  MOVFF  03,70
+237C:  MOVFF  02,6F
+2380:  MOVFF  01,6E
+2384:  MOVFF  00,6D
+2388:  MOVFF  1D,74
+238C:  MOVFF  1C,73
+2390:  MOVFF  1B,72
+2394:  MOVFF  1A,71
+2398:  CALL   12DE
+239C:  BC    23A8
+239E:  BSF    F94.2
+23A0:  BTFSC  F82.2
+23A2:  BRA    23C0
+23A4:  DECFSZ 58,W
+23A6:  BRA    23C0
+....................       { 
+....................         Temperaturamaximaregistrada=Temperatura; 
+23A8:  MOVFF  1D,70
+23AC:  MOVFF  1C,6F
+23B0:  MOVFF  1B,6E
+23B4:  MOVFF  1A,6D
+23B8:  CALL   1354
+23BC:  MOVFF  01,23
+....................       } 
+....................       //Umidade do solo 
+....................       if(RHsolo<RHsolominimoregistrado||!input(pin_c2)&&controledestring==2) 
+23C0:  CLRF   6E
+23C2:  MOVFF  32,6D
+23C6:  CALL   0E84
+23CA:  MOVFF  28,70
+23CE:  MOVFF  27,6F
+23D2:  MOVFF  26,6E
+23D6:  MOVFF  25,6D
+23DA:  MOVFF  03,74
+23DE:  MOVFF  02,73
+23E2:  MOVFF  01,72
+23E6:  MOVFF  00,71
+23EA:  CALL   12DE
+23EE:  BC    23FC
+23F0:  BSF    F94.2
+23F2:  BTFSC  F82.2
+23F4:  BRA    2414
+23F6:  MOVF   58,W
+23F8:  SUBLW  02
+23FA:  BNZ   2414
+....................       { 
+....................         RHsolominimoregistrado=RHsolo; 
+23FC:  MOVFF  28,70
+2400:  MOVFF  27,6F
+2404:  MOVFF  26,6E
+2408:  MOVFF  25,6D
+240C:  CALL   1354
+2410:  MOVFF  01,32
+....................       }  
+....................       if(RHsolo>RHsolomaximoregistrado||!input(pin_c2)&&controledestring==2) 
+2414:  CLRF   6E
+2416:  MOVFF  33,6D
+241A:  CALL   0E84
+241E:  MOVFF  03,70
+2422:  MOVFF  02,6F
+2426:  MOVFF  01,6E
+242A:  MOVFF  00,6D
+242E:  MOVFF  28,74
+2432:  MOVFF  27,73
+2436:  MOVFF  26,72
+243A:  MOVFF  25,71
+243E:  CALL   12DE
+2442:  BC    2450
+2444:  BSF    F94.2
+2446:  BTFSC  F82.2
+2448:  BRA    2468
+244A:  MOVF   58,W
+244C:  SUBLW  02
+244E:  BNZ   2468
+....................       { 
+....................         RHsolomaximoregistrado=RHsolo; 
+2450:  MOVFF  28,70
+2454:  MOVFF  27,6F
+2458:  MOVFF  26,6E
+245C:  MOVFF  25,6D
+2460:  CALL   1354
+2464:  MOVFF  01,33
+....................       } 
+....................       //Umidade do AR 
+....................       if(RHar<RHarminimoregistrado||!input(pin_c2)&&controledestring==3) 
+2468:  CLRF   6E
+246A:  MOVFF  42,6D
+246E:  CALL   0E84
+2472:  MOVFF  3E,70
+2476:  MOVFF  3D,6F
+247A:  MOVFF  3C,6E
+247E:  MOVFF  3B,6D
+2482:  MOVFF  03,74
+2486:  MOVFF  02,73
+248A:  MOVFF  01,72
+248E:  MOVFF  00,71
+2492:  CALL   12DE
+2496:  BC    24A4
+2498:  BSF    F94.2
+249A:  BTFSC  F82.2
+249C:  BRA    24BC
+249E:  MOVF   58,W
+24A0:  SUBLW  03
+24A2:  BNZ   24BC
+....................       { 
+....................         RHarminimoregistrado=RHar; 
+24A4:  MOVFF  3E,70
+24A8:  MOVFF  3D,6F
+24AC:  MOVFF  3C,6E
+24B0:  MOVFF  3B,6D
+24B4:  CALL   1354
+24B8:  MOVFF  01,42
+....................       } 
+....................       if(RHar>RHarmaximoregistrado||!input(pin_c2)&&controledestring==3) 
+24BC:  CLRF   6E
+24BE:  MOVFF  43,6D
+24C2:  CALL   0E84
+24C6:  MOVFF  03,70
+24CA:  MOVFF  02,6F
+24CE:  MOVFF  01,6E
+24D2:  MOVFF  00,6D
+24D6:  MOVFF  3E,74
+24DA:  MOVFF  3D,73
+24DE:  MOVFF  3C,72
+24E2:  MOVFF  3B,71
+24E6:  CALL   12DE
+24EA:  BC    24F8
+24EC:  BSF    F94.2
+24EE:  BTFSC  F82.2
+24F0:  BRA    2510
+24F2:  MOVF   58,W
+24F4:  SUBLW  03
+24F6:  BNZ   2510
+....................       { 
+....................         RHarmaximoregistrado=RHar; 
+24F8:  MOVFF  3E,70
+24FC:  MOVFF  3D,6F
+2500:  MOVFF  3C,6E
+2504:  MOVFF  3B,6D
+2508:  CALL   1354
+250C:  MOVFF  01,43
+....................       } 
+....................       if(!input(pin_c2)&&controledestring==4) 
+2510:  BSF    F94.2
+2512:  BTFSC  F82.2
+2514:  BRA    2526
+2516:  MOVF   58,W
+2518:  SUBLW  04
+251A:  BNZ   2526
+....................       { 
+....................         memoriadosErros=0; 
+251C:  CLRF   64
+....................         auxiliardeErros1=0; 
+251E:  BCF    68.0
+....................         auxiliardeErros2=0; 
+2520:  CLRF   69
+....................         auxiliardeErros4=0; 
+2522:  CLRF   6A
+....................         auxiliardeErros8=0; 
+2524:  CLRF   6B
+....................       } 
+.................... //......................................................................................................       
+....................        
+....................        //4-SEGURANÇA E PROTEÇÕES  
+....................       //ERRO DE FALTA DE AGUA NO RESERVATORIO 
+....................       if(input(pin_c4))     // Sensor de nivel no resevatório de agua (C4) 
+2526:  BSF    F94.4
+2528:  BTFSS  F82.4
+252A:  BRA    2550
+....................       {  
+....................        timerErro++; 
+252C:  INCF   6C,F
+....................        if(timerErro==20) 
+252E:  MOVF   6C,W
+2530:  SUBLW  14
+2532:  BNZ   254E
+....................        { 
+....................         erro1=1; 
+2534:  BSF    24.7
+....................         tempo_on=0; 
+2536:  CLRF   2A
+2538:  CLRF   29
+....................         tempo_off=0; 
+253A:  CLRF   2C
+253C:  CLRF   2B
+....................         tempo_on_2=0; 
+253E:  CLRF   45
+2540:  CLRF   44
+....................         tempo_off_2=0; 
+2542:  CLRF   47
+2544:  CLRF   46
+....................         output_low(pin_d4); 
+2546:  BCF    F95.4
+2548:  BCF    F8C.4
+....................         output_low(pin_d5); 
+254A:  BCF    F95.5
+254C:  BCF    F8C.5
+....................        } 
+....................       } 
+....................       else {erro1=0;timerErro=0;} 
+254E:  BRA    2554
+2550:  BCF    24.7
+2552:  CLRF   6C
+....................        
+....................       //ERRO NO SENSOR DE TEMPERATURA 
+....................       if(mediaADtpt<5) 
+2554:  MOVF   1F,F
+2556:  BNZ   256C
+2558:  MOVF   1E,W
+255A:  SUBLW  04
+255C:  BNC   256C
+....................       { 
+....................        erro2=2; 
+255E:  MOVLW  02
+2560:  MOVWF  65
+....................        output_low(pin_d2); 
+2562:  BCF    F95.2
+2564:  BCF    F8C.2
+....................        output_low(pin_d3); 
+2566:  BCF    F95.3
+2568:  BCF    F8C.3
+....................       } 
+....................       else {erro2=0;} 
+256A:  BRA    256E
+256C:  CLRF   65
+....................        
+....................       //ERRO NO SENSOR DE UMIDADE DO SOLO 
+....................       if(mediaADRHsolo<100||mediaADRHsolo>1000) 
+256E:  MOVF   2E,F
+2570:  BNZ   2578
+2572:  MOVF   2D,W
+2574:  SUBLW  63
+2576:  BC    2588
+2578:  MOVF   2E,W
+257A:  SUBLW  02
+257C:  BC    25A8
+257E:  XORLW  FF
+2580:  BNZ   2588
+2582:  MOVF   2D,W
+2584:  SUBLW  E8
+2586:  BC    25A8
+....................       { 
+....................        erro4=4; 
+2588:  MOVLW  04
+258A:  MOVWF  66
+....................        timersobeautomatico=1; 
+258C:  BSF    24.5
+....................        tempo_on=0; 
+258E:  CLRF   2A
+2590:  CLRF   29
+....................        tempo_off=0; 
+2592:  CLRF   2C
+2594:  CLRF   2B
+....................        if(mododabomba==0) 
+2596:  MOVF   35,F
+2598:  BNZ   259E
+....................        {output_low(pin_d4);} 
+259A:  BCF    F95.4
+259C:  BCF    F8C.4
+....................        RHsolo=0; 
+259E:  CLRF   28
+25A0:  CLRF   27
+25A2:  CLRF   26
+25A4:  CLRF   25
+....................       } 
+....................       else {erro4=0; timersobeautomatico=0;} 
+25A6:  BRA    25AC
+25A8:  CLRF   66
+25AA:  BCF    24.5
+....................        
+....................       //ERRO NO SENSOR DE UMIDADE DO AR 
+....................       if(mediaADRHar<2) 
+25AC:  MOVF   40,F
+25AE:  BNZ   25D8
+25B0:  MOVF   3F,W
+25B2:  SUBLW  01
+25B4:  BNC   25D8
+....................       { 
+....................        erro8=8; 
+25B6:  MOVLW  08
+25B8:  MOVWF  67
+....................        output_low(pin_d5); 
+25BA:  BCF    F95.5
+25BC:  BCF    F8C.5
+....................        RHar=0; 
+25BE:  CLRF   3E
+25C0:  CLRF   3D
+25C2:  CLRF   3C
+25C4:  CLRF   3B
+....................        tempo_on_2=0; 
+25C6:  CLRF   45
+25C8:  CLRF   44
+....................        tempo_off_2=0; 
+25CA:  CLRF   47
+25CC:  CLRF   46
+....................        if(mododoumidificador==0) 
+25CE:  BTFSC  24.6
+25D0:  BRA    25D6
+....................        {output_low(pin_d5);} 
+25D2:  BCF    F95.5
+25D4:  BCF    F8C.5
+....................       } 
+....................       else {erro8=0;} 
+25D6:  BRA    25DA
+25D8:  CLRF   67
+....................        
+....................       somadosErros=erro1+erro2+erro4+erro8; 
+25DA:  MOVLW  00
+25DC:  BTFSC  24.7
+25DE:  MOVLW  01
+25E0:  ADDWF  65,W
+25E2:  ADDWF  66,W
+25E4:  ADDWF  67,W
+25E6:  MOVWF  63
+....................        
+....................       if(somadosErros!=0) 
+25E8:  MOVF   63,F
+25EA:  BZ    2626
+....................       { 
+....................        controle4++; 
+25EC:  INCF   5E,F
+....................        if(controle4>10) 
+25EE:  MOVF   5E,W
+25F0:  SUBLW  0A
+25F2:  BC    2626
+....................        { 
+....................         if(AuxiliardeErros1==0) 
+25F4:  BTFSC  68.0
+25F6:  BRA    25FE
+....................         AuxiliardeErros1=erro1; 
+25F8:  BCF    68.0
+25FA:  BTFSC  24.7
+25FC:  BSF    68.0
+....................         
+....................         if(AuxiliardeErros2==0) 
+25FE:  MOVF   69,F
+2600:  BNZ   2606
+....................         AuxiliardeErros2=erro2; 
+2602:  MOVFF  65,69
+....................         
+....................         if(AuxiliardeErros4==0) 
+2606:  MOVF   6A,F
+2608:  BNZ   260E
+....................         AuxiliardeErros4=erro4; 
+260A:  MOVFF  66,6A
+....................         
+....................         if(AuxiliardeErros8==0) 
+260E:  MOVF   6B,F
+2610:  BNZ   2616
+....................         AuxiliardeErros8=erro8; 
+2612:  MOVFF  67,6B
+....................        
+....................         MemoriadosErros=AuxiliardeErros1+AuxiliardeErros2+AuxiliardeErros4+AuxiliardeErros8; 
+2616:  MOVLW  00
+2618:  BTFSC  68.0
+261A:  MOVLW  01
+261C:  ADDWF  69,W
+261E:  ADDWF  6A,W
+2620:  ADDWF  6B,W
+2622:  MOVWF  64
+....................         controle4=0; 
+2624:  CLRF   5E
+....................        }  
+....................       } 
+....................        
+....................       if(somadoserros==0) 
+2626:  MOVF   63,F
+2628:  BNZ   2632
+....................       { 
+....................        output_low(pin_D7); 
+262A:  BCF    F95.7
+262C:  BCF    F8C.7
+....................        controle2=0; 
+262E:  CLRF   5C
+....................        controle3=0; 
+2630:  CLRF   5D
+....................       } 
+....................        
+....................       if(somadoserros!=0) 
+2632:  MOVF   63,F
+2634:  BZ    2656
+....................       { 
+....................        if(controle2<=5) 
+2636:  MOVF   5C,W
+2638:  SUBLW  05
+263A:  BNC   2640
+....................        {output_high(pin_d7);} 
+263C:  BCF    F95.7
+263E:  BSF    F8C.7
+....................        controle2++; 
+2640:  INCF   5C,F
+....................        if(controle2>5) 
+2642:  MOVF   5C,W
+2644:  SUBLW  05
+2646:  BC    264C
+....................        {output_low(pin_d7);} 
+2648:  BCF    F95.7
+264A:  BCF    F8C.7
+....................        if(controle2==10) 
+264C:  MOVF   5C,W
+264E:  SUBLW  0A
+2650:  BNZ   2654
+....................        {controle2=0;} 
+2652:  CLRF   5C
+....................        controle3++; 
+2654:  INCF   5D,F
+....................       } 
+....................       if(controle3>50) 
+2656:  MOVF   5D,W
+2658:  SUBLW  32
+265A:  BC    265E
+....................       {controle3=0;} 
+265C:  CLRF   5D
+....................  
+.................... //................................................................................................... 
+....................  
+....................        //5-CONTROLE DE SAIDAS 
+....................       //AQUECIMENTO(D2) E RESFRIAMENTO(D3) 
+....................       if (Temperatura<Tmin&&mododoaquecedor==0&&erro2==0)               
+265E:  CLRF   6E
+2660:  MOVFF  20,6D
+2664:  CALL   0E84
+2668:  MOVFF  1D,70
+266C:  MOVFF  1C,6F
+2670:  MOVFF  1B,6E
+2674:  MOVFF  1A,6D
+2678:  MOVFF  03,74
+267C:  MOVFF  02,73
+2680:  MOVFF  01,72
+2684:  MOVFF  00,71
+2688:  CALL   12DE
+268C:  BNC   269C
+268E:  BTFSC  24.0
+2690:  BRA    269C
+2692:  MOVF   65,F
+2694:  BNZ   269C
+....................       { 
+....................        aquec_aut=1; 
+2696:  BSF    24.2
+....................        output_high(pin_D2); 
+2698:  BCF    F95.2
+269A:  BSF    F8C.2
+....................       }  
+....................       if (Temperatura>Tmin&&mododoaquecedor==0) 
+269C:  CLRF   6E
+269E:  MOVFF  20,6D
+26A2:  CALL   0E84
+26A6:  MOVFF  03,70
+26AA:  MOVFF  02,6F
+26AE:  MOVFF  01,6E
+26B2:  MOVFF  00,6D
+26B6:  MOVFF  1D,74
+26BA:  MOVFF  1C,73
+26BE:  MOVFF  1B,72
+26C2:  MOVFF  1A,71
+26C6:  CALL   12DE
+26CA:  BNC   26D4
+26CC:  BTFSC  24.0
+26CE:  BRA    26D4
+....................       { 
+....................        output_low(pin_D2); 
+26D0:  BCF    F95.2
+26D2:  BCF    F8C.2
+....................       } 
+....................       if (Temperatura>Tmax&&mododoresfriador==0&&erro2==0)  
+26D4:  CLRF   6E
+26D6:  MOVFF  21,6D
+26DA:  CALL   0E84
+26DE:  MOVFF  03,70
+26E2:  MOVFF  02,6F
+26E6:  MOVFF  01,6E
+26EA:  MOVFF  00,6D
+26EE:  MOVFF  1D,74
+26F2:  MOVFF  1C,73
+26F6:  MOVFF  1B,72
+26FA:  MOVFF  1A,71
+26FE:  CALL   12DE
+2702:  BNC   2712
+2704:  BTFSC  24.1
+2706:  BRA    2712
+2708:  MOVF   65,F
+270A:  BNZ   2712
+....................       { 
+....................        resfr_aut=1; 
+270C:  BSF    24.3
+....................        output_high(pin_D3); 
+270E:  BCF    F95.3
+2710:  BSF    F8C.3
+....................       } 
+....................       if (Temperatura<Tmax&&mododoresfriador==0)  
+2712:  CLRF   6E
+2714:  MOVFF  21,6D
+2718:  CALL   0E84
+271C:  MOVFF  1D,70
+2720:  MOVFF  1C,6F
+2724:  MOVFF  1B,6E
+2728:  MOVFF  1A,6D
+272C:  MOVFF  03,74
+2730:  MOVFF  02,73
+2734:  MOVFF  01,72
+2738:  MOVFF  00,71
+273C:  CALL   12DE
+2740:  BNC   274A
+2742:  BTFSC  24.1
+2744:  BRA    274A
+....................       { 
+....................        output_low(pin_D3); 
+2746:  BCF    F95.3
+2748:  BCF    F8C.3
+....................       } 
+....................        
+....................       //UMIDIFICAÇÃO (D5)  
+....................       if(RHar>=RHdesAR&&Mododoumidificador==0)  
+274A:  CLRF   6E
+274C:  MOVFF  41,6D
+2750:  CALL   0E84
+2754:  MOVFF  03,70
+2758:  MOVFF  02,6F
+275C:  MOVFF  01,6E
+2760:  MOVFF  00,6D
+2764:  MOVFF  3E,74
+2768:  MOVFF  3D,73
+276C:  MOVFF  3C,72
+2770:  MOVFF  3B,71
+2774:  CALL   12DE
+2778:  BC    277C
+277A:  BNZ   2792
+277C:  BTFSC  24.6
+277E:  BRA    2792
+....................       { 
+....................        output_low(pin_D5); 
+2780:  BCF    F95.5
+2782:  BCF    F8C.5
+....................        tempo_on_2=0; 
+2784:  CLRF   45
+2786:  CLRF   44
+....................        tempo_off_2=0; 
+2788:  CLRF   47
+278A:  CLRF   46
+....................        tempo_bombaOn_2=0; 
+278C:  CLRF   48
+....................        tempo_bombaOff_2=0; 
+278E:  CLRF   4A
+2790:  CLRF   49
+....................       } 
+....................       difRHar= RHdesAR - RHar; 
+2792:  CLRF   6E
+2794:  MOVFF  41,6D
+2798:  CALL   0E84
+279C:  BSF    FD8.1
+279E:  MOVFF  03,70
+27A2:  MOVFF  02,6F
+27A6:  MOVFF  01,6E
+27AA:  MOVFF  00,6D
+27AE:  MOVFF  3E,74
+27B2:  MOVFF  3D,73
+27B6:  MOVFF  3C,72
+27BA:  MOVFF  3B,71
+27BE:  CALL   1030
+27C2:  MOVFF  03,70
+27C6:  MOVFF  02,6F
+27CA:  MOVFF  01,6E
+27CE:  MOVFF  00,6D
+27D2:  CALL   1354
+27D6:  MOVFF  01,4B
+....................       if (RHar<RHdesAr&&difRHar>0.00&&Mododoumidificador==0&&erro1==0&&erro8==0)           
+27DA:  CLRF   6E
+27DC:  MOVFF  41,6D
+27E0:  CALL   0E84
+27E4:  MOVFF  3E,70
+27E8:  MOVFF  3D,6F
+27EC:  MOVFF  3C,6E
+27F0:  MOVFF  3B,6D
+27F4:  MOVFF  03,74
+27F8:  MOVFF  02,73
+27FC:  MOVFF  01,72
+2800:  MOVFF  00,71
+2804:  CALL   12DE
+2808:  BNC   28AC
+280A:  CLRF   6E
+280C:  MOVFF  4B,6D
+2810:  BTFSC  6D.7
+2812:  DECF   6E,F
+2814:  CALL   138C
+2818:  CLRF   70
+281A:  CLRF   6F
+281C:  CLRF   6E
+281E:  CLRF   6D
+2820:  MOVFF  03,74
+2824:  MOVFF  02,73
+2828:  MOVFF  01,72
+282C:  MOVFF  00,71
+2830:  CALL   12DE
+2834:  BNC   28AC
+2836:  BTFSC  24.6
+2838:  BRA    28AC
+283A:  BTFSC  24.7
+283C:  BRA    28AC
+283E:  MOVF   67,F
+2840:  BNZ   28AC
+....................       { 
+....................         
+....................          tempo_bombaOff_2 = 40; 
+2842:  CLRF   4A
+2844:  MOVLW  28
+2846:  MOVWF  49
+....................          tempo_bombaOn_2 = 40; 
+2848:  MOVWF  48
+....................          
+....................         tempo_on_2++;                                     
+284A:  INCF   44,F
+284C:  BTFSC  FD8.2
+284E:  INCF   45,F
+....................         if (tempo_off_2==0&&difRHar>0)                 
+2850:  MOVF   46,F
+2852:  BNZ   2866
+2854:  MOVF   47,F
+2856:  BNZ   2866
+2858:  BTFSC  4B.7
+285A:  BRA    2866
+285C:  MOVF   4B,W
+285E:  SUBLW  00
+2860:  BC    2866
+....................         { 
+....................          output_high(pin_D5); 
+2862:  BCF    F95.5
+2864:  BSF    F8C.5
+....................         } 
+....................         if(tempo_on_2==tempo_bombaOn_2) 
+2866:  MOVF   48,W
+2868:  SUBWF  44,W
+286A:  BNZ   287C
+286C:  MOVF   45,F
+286E:  BNZ   287C
+....................         { 
+....................          tempo_off_2 = tempo_on_2;  
+2870:  MOVFF  45,47
+2874:  MOVFF  44,46
+....................          output_low(pin_D5);      
+2878:  BCF    F95.5
+287A:  BCF    F8C.5
+....................         }  
+....................         if(tempo_off_2>=tempo_bombaOn_2&&difRHar>0)        
+287C:  MOVF   47,F
+287E:  BNZ   2886
+2880:  MOVF   48,W
+2882:  SUBWF  46,W
+2884:  BNC   2896
+2886:  BTFSC  4B.7
+2888:  BRA    2896
+288A:  MOVF   4B,W
+288C:  SUBLW  00
+288E:  BC    2896
+....................         { 
+....................          tempo_off_2++;            
+2890:  INCF   46,F
+2892:  BTFSC  FD8.2
+2894:  INCF   47,F
+....................         } 
+....................         if (tempo_off_2>=tempo_bombaOff_2)                   
+2896:  MOVF   4A,W
+2898:  SUBWF  47,W
+289A:  BNC   28AC
+289C:  BNZ   28A4
+289E:  MOVF   49,W
+28A0:  SUBWF  46,W
+28A2:  BNC   28AC
+....................         { 
+....................          tempo_on_2=0; 
+28A4:  CLRF   45
+28A6:  CLRF   44
+....................          tempo_off_2=0; 
+28A8:  CLRF   47
+28AA:  CLRF   46
+....................         } 
+....................       } 
+....................        
+....................       //IRRIGAÇÃO (D4) 
+....................       if(RHsolo>=RHdesSolo&&Mododabomba==0)  
+28AC:  CLRF   6E
+28AE:  MOVFF  34,6D
+28B2:  CALL   0E84
+28B6:  MOVFF  03,70
+28BA:  MOVFF  02,6F
+28BE:  MOVFF  01,6E
+28C2:  MOVFF  00,6D
+28C6:  MOVFF  28,74
+28CA:  MOVFF  27,73
+28CE:  MOVFF  26,72
+28D2:  MOVFF  25,71
+28D6:  CALL   12DE
+28DA:  BC    28DE
+28DC:  BNZ   28F4
+28DE:  MOVF   35,F
+28E0:  BNZ   28F4
+....................       { 
+....................        output_low(pin_D4); 
+28E2:  BCF    F95.4
+28E4:  BCF    F8C.4
+....................        tempo_on=0; 
+28E6:  CLRF   2A
+28E8:  CLRF   29
+....................        tempo_off=0; 
+28EA:  CLRF   2C
+28EC:  CLRF   2B
+....................        tempo_bombaOn=0; 
+28EE:  CLRF   31
+....................        tempo_bombaOff=0; 
+28F0:  CLRF   30
+28F2:  CLRF   2F
+....................       } 
+....................       difRHsolo= RHdesSOLO - RHsolo; 
+28F4:  CLRF   6E
+28F6:  MOVFF  34,6D
+28FA:  CALL   0E84
+28FE:  BSF    FD8.1
+2900:  MOVFF  03,70
+2904:  MOVFF  02,6F
+2908:  MOVFF  01,6E
+290C:  MOVFF  00,6D
+2910:  MOVFF  28,74
+2914:  MOVFF  27,73
+2918:  MOVFF  26,72
+291C:  MOVFF  25,71
+2920:  CALL   1030
+2924:  MOVFF  03,70
+2928:  MOVFF  02,6F
+292C:  MOVFF  01,6E
+2930:  MOVFF  00,6D
+2934:  CALL   1354
+2938:  MOVFF  01,3A
+....................       if (RHsolo<RHdesSOLO&&difRHsolo>0.00&&Mododabomba==0&&erro1==0&&erro4==0&&timersobeautomatico==0)           
+293C:  CLRF   6E
+293E:  MOVFF  34,6D
+2942:  CALL   0E84
+2946:  MOVFF  28,70
+294A:  MOVFF  27,6F
+294E:  MOVFF  26,6E
+2952:  MOVFF  25,6D
+2956:  MOVFF  03,74
+295A:  MOVFF  02,73
+295E:  MOVFF  01,72
+2962:  MOVFF  00,71
+2966:  CALL   12DE
+296A:  BTFSS  FD8.0
+296C:  BRA    2A86
+296E:  CLRF   6E
+2970:  MOVFF  3A,6D
+2974:  BTFSC  6D.7
+2976:  DECF   6E,F
+2978:  CALL   138C
+297C:  CLRF   70
+297E:  CLRF   6F
+2980:  CLRF   6E
+2982:  CLRF   6D
+2984:  MOVFF  03,74
+2988:  MOVFF  02,73
+298C:  MOVFF  01,72
+2990:  MOVFF  00,71
+2994:  CALL   12DE
+2998:  BTFSS  FD8.0
+299A:  BRA    2A86
+299C:  MOVF   35,F
+299E:  BTFSS  FD8.2
+29A0:  BRA    2A86
+29A2:  BTFSC  24.7
+29A4:  BRA    2A86
+29A6:  MOVF   66,F
+29A8:  BTFSS  FD8.2
+29AA:  BRA    2A86
+29AC:  BTFSC  24.5
+29AE:  BRA    2A86
+....................       { 
+....................         if (difRHsolo>75) 
+29B0:  BTFSC  3A.7
+29B2:  BRA    29C4
+29B4:  MOVF   3A,W
+29B6:  SUBLW  4B
+29B8:  BC    29C4
+....................         { 
+....................          tempo_bombaOff = 200; 
+29BA:  CLRF   30
+29BC:  MOVLW  C8
+29BE:  MOVWF  2F
+....................          tempo_bombaOn=50; 
+29C0:  MOVLW  32
+29C2:  MOVWF  31
+....................         } 
+....................         if (difRHsolo>50&& difRHsolo<=75) 
+29C4:  BTFSC  3A.7
+29C6:  BRA    29E4
+29C8:  MOVF   3A,W
+29CA:  SUBLW  32
+29CC:  BC    29E4
+29CE:  BTFSC  3A.7
+29D0:  BRA    29D8
+29D2:  MOVF   3A,W
+29D4:  SUBLW  4B
+29D6:  BNC   29E4
+....................         { 
+....................          tempo_bombaoff = 300; 
+29D8:  MOVLW  01
+29DA:  MOVWF  30
+29DC:  MOVLW  2C
+29DE:  MOVWF  2F
+....................          tempo_bombaOn= 40; 
+29E0:  MOVLW  28
+29E2:  MOVWF  31
+....................         } 
+....................         if (difRHsolo>20&& difRHsolo<=50) 
+29E4:  BTFSC  3A.7
+29E6:  BRA    2A04
+29E8:  MOVF   3A,W
+29EA:  SUBLW  14
+29EC:  BC    2A04
+29EE:  BTFSC  3A.7
+29F0:  BRA    29F8
+29F2:  MOVF   3A,W
+29F4:  SUBLW  32
+29F6:  BNC   2A04
+....................         { 
+....................          tempo_bombaoff = 400; 
+29F8:  MOVLW  01
+29FA:  MOVWF  30
+29FC:  MOVLW  90
+29FE:  MOVWF  2F
+....................          tempo_bombaOn= 30; 
+2A00:  MOVLW  1E
+2A02:  MOVWF  31
+....................         } 
+....................         if (difRHsolo<=20&&difRHsolo>0) 
+2A04:  BTFSC  3A.7
+2A06:  BRA    2A0E
+2A08:  MOVF   3A,W
+2A0A:  SUBLW  14
+2A0C:  BNC   2A24
+2A0E:  BTFSC  3A.7
+2A10:  BRA    2A24
+2A12:  MOVF   3A,W
+2A14:  SUBLW  00
+2A16:  BC    2A24
+....................         { 
+....................          tempo_bombaoff = 500; 
+2A18:  MOVLW  01
+2A1A:  MOVWF  30
+2A1C:  MOVLW  F4
+2A1E:  MOVWF  2F
+....................          tempo_bombaOn= 20; 
+2A20:  MOVLW  14
+2A22:  MOVWF  31
+....................         } 
+....................          
+....................         tempo_on++;                                     
+2A24:  INCF   29,F
+2A26:  BTFSC  FD8.2
+2A28:  INCF   2A,F
+....................         if (tempo_off==0&&difRHsolo>0)                 
+2A2A:  MOVF   2B,F
+2A2C:  BNZ   2A40
+2A2E:  MOVF   2C,F
+2A30:  BNZ   2A40
+2A32:  BTFSC  3A.7
+2A34:  BRA    2A40
+2A36:  MOVF   3A,W
+2A38:  SUBLW  00
+2A3A:  BC    2A40
+....................         { 
+....................          output_high(pin_D4); 
+2A3C:  BCF    F95.4
+2A3E:  BSF    F8C.4
+....................         } 
+....................         if(tempo_on==tempo_bombaOn) 
+2A40:  MOVF   31,W
+2A42:  SUBWF  29,W
+2A44:  BNZ   2A56
+2A46:  MOVF   2A,F
+2A48:  BNZ   2A56
+....................         { 
+....................          tempo_off = tempo_on;  
+2A4A:  MOVFF  2A,2C
+2A4E:  MOVFF  29,2B
+....................          output_low(pin_D4);      
+2A52:  BCF    F95.4
+2A54:  BCF    F8C.4
+....................         }  
+....................         if(tempo_off>=tempo_bombaOn&&difRHsolo>0)        
+2A56:  MOVF   2C,F
+2A58:  BNZ   2A60
+2A5A:  MOVF   31,W
+2A5C:  SUBWF  2B,W
+2A5E:  BNC   2A70
+2A60:  BTFSC  3A.7
+2A62:  BRA    2A70
+2A64:  MOVF   3A,W
+2A66:  SUBLW  00
+2A68:  BC    2A70
+....................         { 
+....................          tempo_off++;            
+2A6A:  INCF   2B,F
+2A6C:  BTFSC  FD8.2
+2A6E:  INCF   2C,F
+....................         } 
+....................         if (tempo_off>=tempo_bombaOff)                   
+2A70:  MOVF   30,W
+2A72:  SUBWF  2C,W
+2A74:  BNC   2A86
+2A76:  BNZ   2A7E
+2A78:  MOVF   2F,W
+2A7A:  SUBWF  2B,W
+2A7C:  BNC   2A86
+....................         { 
+....................          tempo_on=0; 
+2A7E:  CLRF   2A
+2A80:  CLRF   29
+....................          tempo_off=0; 
+2A82:  CLRF   2C
+2A84:  CLRF   2B
+....................         } 
+....................       } 
+....................     
+....................        
+.................... //6-MENU DE PARAMETRIZAÇÃOES       
+....................       //PARAMETRIZA VALOR DE TEMPERATURA MINIMA (Tmin) 
+....................        if(!input(pin_c0))                        
+2A86:  BSF    F94.0
+2A88:  BTFSC  F82.0
+2A8A:  BRA    2A8E
+....................        { 
+....................         teclapressionadaMenu2++; 
+2A8C:  INCF   62,F
+....................        } 
+....................        if(input(pin_c0)) 
+2A8E:  BSF    F94.0
+2A90:  BTFSS  F82.0
+2A92:  BRA    2A96
+....................        { 
+....................         teclapressionadaMenu2=0; 
+2A94:  CLRF   62
+....................        } 
+....................        if(teclapressionadaMenu2==15)                                 
+2A96:  MOVF   62,W
+2A98:  SUBLW  0F
+2A9A:  BTFSS  FD8.2
+2A9C:  BRA    3154
+....................        { 
+....................         controledestring=0; 
+2A9E:  CLRF   58
+....................         controledestring2=0; 
+2AA0:  CLRF   59
+....................         controledestring3=0; 
+2AA2:  CLRF   5A
+....................         teclapressionada=0; 
+2AA4:  CLRF   60
+....................         verificateclaC1=0; 
+2AA6:  BCF    68.1
+....................         teclapressionadaMenu=0; 
+2AA8:  CLRF   61
+....................         verificateclaC0=0; 
+2AAA:  BCF    68.2
+....................         teclapressionadaMenu2=0; 
+2AAC:  CLRF   62
+....................         lcd_escreve ('\f'); 
+2AAE:  MOVLW  0C
+2AB0:  MOVWF  7A
+2AB2:  CALL   08DC
+....................          
+....................         while (input(pin_c3)) 
+....................         { 
+2AB6:  BSF    F94.3
+2AB8:  BTFSS  F82.3
+2ABA:  BRA    3154
+....................          delay_ms(100); 
+2ABC:  MOVLW  64
+2ABE:  MOVWF  7B
+2AC0:  CALL   07C6
+....................          output_d(0);            
+2AC4:  CLRF   F95
+2AC6:  CLRF   F8C
+....................          if(!input(pin_c0)&&verificateclaC1==0)          
+2AC8:  BSF    F94.0
+2ACA:  BTFSC  F82.0
+2ACC:  BRA    2AD4
+2ACE:  BTFSC  68.1
+2AD0:  BRA    2AD4
+....................          { 
+....................           teclapressionadaMenu2++; 
+2AD2:  INCF   62,F
+....................          } 
+....................          if(timerdabomba==0) 
+2AD4:  BTFSC  24.4
+2AD6:  BRA    2AE2
+....................          { 
+....................           if(teclapressionadaMenu2>7) 
+2AD8:  MOVF   62,W
+2ADA:  SUBLW  07
+2ADC:  BC    2AE2
+....................           {teclapressionadaMenu2=7;} 
+2ADE:  MOVLW  07
+2AE0:  MOVWF  62
+....................          } 
+....................          if(!input(pin_c0)) 
+2AE2:  BSF    F94.0
+2AE4:  BTFSC  F82.0
+2AE6:  BRA    2AEC
+....................          { 
+....................           verificateclaC1=1; 
+2AE8:  BSF    68.1
+....................          }else verificateclaC1=0; 
+2AEA:  BRA    2AEE
+2AEC:  BCF    68.1
+....................          if(teclapressionadaMenu2==1) 
+2AEE:  DECFSZ 62,W
+2AF0:  BRA    2AFE
+....................          { 
+....................           controledestring3=1; 
+2AF2:  MOVLW  01
+2AF4:  MOVWF  5A
+....................           lcd_escreve ('\f'); 
+2AF6:  MOVLW  0C
+2AF8:  MOVWF  7A
+2AFA:  CALL   08DC
+....................          } 
+....................          if(teclapressionadaMenu2==2) 
+2AFE:  MOVF   62,W
+2B00:  SUBLW  02
+2B02:  BNZ   2B10
+....................          { 
+....................           controledestring3=2; 
+2B04:  MOVLW  02
+2B06:  MOVWF  5A
+....................           lcd_escreve ('\f'); 
+2B08:  MOVLW  0C
+2B0A:  MOVWF  7A
+2B0C:  CALL   08DC
+....................          } 
+....................          if(teclapressionadaMenu2==3) 
+2B10:  MOVF   62,W
+2B12:  SUBLW  03
+2B14:  BNZ   2B22
+....................          { 
+....................           controledestring3=3; 
+2B16:  MOVLW  03
+2B18:  MOVWF  5A
+....................           lcd_escreve ('\f'); 
+2B1A:  MOVLW  0C
+2B1C:  MOVWF  7A
+2B1E:  CALL   08DC
+....................          } 
+....................          if(teclapressionadaMenu2==4) 
+2B22:  MOVF   62,W
+2B24:  SUBLW  04
+2B26:  BNZ   2B34
+....................          { 
+....................           controledestring3=4; 
+2B28:  MOVLW  04
+2B2A:  MOVWF  5A
+....................           lcd_escreve ('\f'); 
+2B2C:  MOVLW  0C
+2B2E:  MOVWF  7A
+2B30:  CALL   08DC
+....................          } 
+....................          if(teclapressionadaMenu2==5) 
+2B34:  MOVF   62,W
+2B36:  SUBLW  05
+2B38:  BNZ   2B46
+....................          { 
+....................           controledestring3=5; 
+2B3A:  MOVLW  05
+2B3C:  MOVWF  5A
+....................           lcd_escreve ('\f'); 
+2B3E:  MOVLW  0C
+2B40:  MOVWF  7A
+2B42:  CALL   08DC
+....................          } 
+....................          if(teclapressionadaMenu2==6) 
+2B46:  MOVF   62,W
+2B48:  SUBLW  06
+2B4A:  BNZ   2B58
+....................          { 
+....................           controledestring3=6; 
+2B4C:  MOVLW  06
+2B4E:  MOVWF  5A
+....................           lcd_escreve ('\f'); 
+2B50:  MOVLW  0C
+2B52:  MOVWF  7A
+2B54:  CALL   08DC
+....................          } 
+....................          if(teclapressionadaMenu2==7) 
+2B58:  MOVF   62,W
+2B5A:  SUBLW  07
+2B5C:  BNZ   2B6A
+....................          { 
+....................           controledestring3=7; 
+2B5E:  MOVLW  07
+2B60:  MOVWF  5A
+....................           lcd_escreve ('\f'); 
+2B62:  MOVLW  0C
+2B64:  MOVWF  7A
+2B66:  CALL   08DC
+....................          } 
+....................          if(teclapressionadaMenu2==8) 
+2B6A:  MOVF   62,W
+2B6C:  SUBLW  08
+2B6E:  BNZ   2B7C
+....................          { 
+....................           controledestring3=8; 
+2B70:  MOVLW  08
+2B72:  MOVWF  5A
+....................           lcd_escreve ('\f'); 
+2B74:  MOVLW  0C
+2B76:  MOVWF  7A
+2B78:  CALL   08DC
+....................          } 
+....................          if(teclapressionadaMenu2==9) 
+2B7C:  MOVF   62,W
+2B7E:  SUBLW  09
+2B80:  BNZ   2B8E
+....................          { 
+....................           controledestring3=9; 
+2B82:  MOVLW  09
+2B84:  MOVWF  5A
+....................           lcd_escreve ('\f'); 
+2B86:  MOVLW  0C
+2B88:  MOVWF  7A
+2B8A:  CALL   08DC
+....................          } 
+....................          if(teclapressionadaMenu2==10) 
+2B8E:  MOVF   62,W
+2B90:  SUBLW  0A
+2B92:  BNZ   2BA0
+....................          { 
+....................           controledestring3=10; 
+2B94:  MOVLW  0A
+2B96:  MOVWF  5A
+....................           lcd_escreve ('\f'); 
+2B98:  MOVLW  0C
+2B9A:  MOVWF  7A
+2B9C:  CALL   08DC
+....................          } 
+....................          if(teclapressionadaMenu2==11) 
+2BA0:  MOVF   62,W
+2BA2:  SUBLW  0B
+2BA4:  BNZ   2BB2
+....................          { 
+....................           controledestring3=11; 
+2BA6:  MOVLW  0B
+2BA8:  MOVWF  5A
+....................           lcd_escreve ('\f'); 
+2BAA:  MOVLW  0C
+2BAC:  MOVWF  7A
+2BAE:  CALL   08DC
+....................          } 
+....................          if(controledestring3==1) 
+2BB2:  DECFSZ 5A,W
+2BB4:  BRA    2C26
+....................          { 
+....................           lcd_pos_xy(1,1); 
+2BB6:  MOVLW  01
+2BB8:  MOVWF  7B
+2BBA:  MOVWF  7C
+2BBC:  CALL   08BA
+....................           printf (lcd_escreve, "Temperatura"); 
+2BC0:  MOVLW  44
+2BC2:  MOVWF  FF6
+2BC4:  MOVLW  03
+2BC6:  MOVWF  FF7
+2BC8:  CALL   0924
+....................           lcd_pos_xy(1,2); 
+2BCC:  MOVLW  01
+2BCE:  MOVWF  7B
+2BD0:  MOVLW  02
+2BD2:  MOVWF  7C
+2BD4:  CALL   08BA
+....................           printf (lcd_escreve, "Offset:     %02d%cC",Tmin,0xDF); 
+2BD8:  MOVLW  50
+2BDA:  MOVWF  FF6
+2BDC:  MOVLW  03
+2BDE:  MOVWF  FF7
+2BE0:  MOVLW  0C
+2BE2:  MOVWF  6D
+2BE4:  CALL   0C7A
+2BE8:  MOVFF  20,6D
+2BEC:  MOVLW  01
+2BEE:  MOVWF  6E
+2BF0:  CALL   0D74
+2BF4:  MOVLW  DF
+2BF6:  MOVWF  7A
+2BF8:  CALL   08DC
+2BFC:  MOVLW  43
+2BFE:  MOVWF  7A
+2C00:  CALL   08DC
+....................           if(!input(pin_c1))                            //TECLA SETA PRA CIMA 
+2C04:  BSF    F94.1
+2C06:  BTFSC  F82.1
+2C08:  BRA    2C0C
+....................           {Tmin++;} 
+2C0A:  INCF   20,F
+....................           if(!input(pin_c2))                           //TECLA SETA PARA BAIXO 
+2C0C:  BSF    F94.2
+2C0E:  BTFSC  F82.2
+2C10:  BRA    2C14
+....................           {Tmin--;} 
+2C12:  DECF   20,F
+....................           if(Tmin<1)                                   // Estipula limites para Tmin 
+2C14:  MOVF   20,F
+2C16:  BNZ   2C1C
+....................           {Tmin=1;}  
+2C18:  MOVLW  01
+2C1A:  MOVWF  20
+....................           if(Tmin>60) 
+2C1C:  MOVF   20,W
+2C1E:  SUBLW  3C
+2C20:  BC    2C26
+....................           {Tmin=60;} 
+2C22:  MOVLW  3C
+2C24:  MOVWF  20
+....................          } 
+....................          if(controledestring3==2) 
+2C26:  MOVF   5A,W
+2C28:  SUBLW  02
+2C2A:  BNZ   2C9E
+....................          { 
+....................           lcd_pos_xy(1,1); 
+2C2C:  MOVLW  01
+2C2E:  MOVWF  7B
+2C30:  MOVWF  7C
+2C32:  CALL   08BA
+....................           printf (lcd_escreve, "Temperatura"); 
+2C36:  MOVLW  64
+2C38:  MOVWF  FF6
+2C3A:  MOVLW  03
+2C3C:  MOVWF  FF7
+2C3E:  CALL   0924
+....................           lcd_pos_xy(1,2); 
+2C42:  MOVLW  01
+2C44:  MOVWF  7B
+2C46:  MOVLW  02
+2C48:  MOVWF  7C
+2C4A:  CALL   08BA
+....................           printf (lcd_escreve, "Maxima:     %02d%cC",Tmax,0xDF); 
+2C4E:  MOVLW  70
+2C50:  MOVWF  FF6
+2C52:  MOVLW  03
+2C54:  MOVWF  FF7
+2C56:  MOVLW  0C
+2C58:  MOVWF  6D
+2C5A:  CALL   0C7A
+2C5E:  MOVFF  21,6D
+2C62:  MOVLW  01
+2C64:  MOVWF  6E
+2C66:  CALL   0D74
+2C6A:  MOVLW  DF
+2C6C:  MOVWF  7A
+2C6E:  CALL   08DC
+2C72:  MOVLW  43
+2C74:  MOVWF  7A
+2C76:  CALL   08DC
+....................           if(!input(pin_c1))                  //TECLA Seta pata cima 
+2C7A:  BSF    F94.1
+2C7C:  BTFSC  F82.1
+2C7E:  BRA    2C82
+....................           {Tmax++;} 
+2C80:  INCF   21,F
+....................           if(!input(pin_c2))                  //TECLA Seta para baixo 
+2C82:  BSF    F94.2
+2C84:  BTFSC  F82.2
+2C86:  BRA    2C8A
+....................           {Tmax--;} 
+2C88:  DECF   21,F
+....................           if(Tmax<20)                         //Estipula limites para Tmax 
+2C8A:  MOVF   21,W
+2C8C:  SUBLW  13
+2C8E:  BNC   2C94
+....................           {Tmax=20;} 
+2C90:  MOVLW  14
+2C92:  MOVWF  21
+....................           if(Tmax>61) 
+2C94:  MOVF   21,W
+2C96:  SUBLW  3D
+2C98:  BC    2C9E
+....................           {Tmax=61;} 
+2C9A:  MOVLW  3D
+2C9C:  MOVWF  21
+....................          } 
+....................          if(controledestring3==3) 
+2C9E:  MOVF   5A,W
+2CA0:  SUBLW  03
+2CA2:  BNZ   2D10
+....................          { 
+....................           lcd_pos_xy(1,1); 
+2CA4:  MOVLW  01
+2CA6:  MOVWF  7B
+2CA8:  MOVWF  7C
+2CAA:  CALL   08BA
+....................           printf (lcd_escreve, "Umidade do Solo "); 
+2CAE:  MOVLW  84
+2CB0:  MOVWF  FF6
+2CB2:  MOVLW  03
+2CB4:  MOVWF  FF7
+2CB6:  CALL   0924
+....................           lcd_pos_xy(1,2); 
+2CBA:  MOVLW  01
+2CBC:  MOVWF  7B
+2CBE:  MOVLW  02
+2CC0:  MOVWF  7C
+2CC2:  CALL   08BA
+....................           printf (lcd_escreve, "Offset:     %03d%s",RHdesSOLO,"%"); 
+2CC6:  MOVLW  96
+2CC8:  MOVWF  FF6
+2CCA:  MOVLW  03
+2CCC:  MOVWF  FF7
+2CCE:  MOVLW  0C
+2CD0:  MOVWF  6D
+2CD2:  CALL   0C7A
+2CD6:  MOVFF  34,6D
+2CDA:  MOVLW  03
+2CDC:  MOVWF  6E
+2CDE:  CALL   0D74
+2CE2:  MOVLW  AA
+2CE4:  MOVWF  FF6
+2CE6:  MOVLW  03
+2CE8:  MOVWF  FF7
+2CEA:  CALL   0924
+....................           if(!input(pin_c1))                     //TECLA SETA PARA CIMA 
+2CEE:  BSF    F94.1
+2CF0:  BTFSC  F82.1
+2CF2:  BRA    2CF6
+....................           {RHdesSOLO++;} 
+2CF4:  INCF   34,F
+....................           if(!input(pin_c2))                     //TECLA SETA PARA BAIXO 
+2CF6:  BSF    F94.2
+2CF8:  BTFSC  F82.2
+2CFA:  BRA    2CFE
+....................           {RHdesSOLO--;} 
+2CFC:  DECF   34,F
+....................           if(RHdesSOLO<1)                        //Estipula Limites para RHdesSOLO 
+2CFE:  MOVF   34,F
+2D00:  BNZ   2D06
+....................           {RHdesSOLO=1;} 
+2D02:  MOVLW  01
+2D04:  MOVWF  34
+....................           if(RhdesSOLO>100)   
+2D06:  MOVF   34,W
+2D08:  SUBLW  64
+2D0A:  BC    2D10
+....................           {RHdesSOLO=100;} 
+2D0C:  MOVLW  64
+2D0E:  MOVWF  34
+....................          } 
+....................          if(controledestring3==4) 
+2D10:  MOVF   5A,W
+2D12:  SUBLW  04
+2D14:  BNZ   2D82
+....................          {  
+....................           lcd_pos_xy(1,1); 
+2D16:  MOVLW  01
+2D18:  MOVWF  7B
+2D1A:  MOVWF  7C
+2D1C:  CALL   08BA
+....................           printf (lcd_escreve, "Umidade do AR "); 
+2D20:  MOVLW  AC
+2D22:  MOVWF  FF6
+2D24:  MOVLW  03
+2D26:  MOVWF  FF7
+2D28:  CALL   0924
+....................           lcd_pos_xy(1,2); 
+2D2C:  MOVLW  01
+2D2E:  MOVWF  7B
+2D30:  MOVLW  02
+2D32:  MOVWF  7C
+2D34:  CALL   08BA
+....................           printf (lcd_escreve, "Offset:     %03d%s",RHdesAR,"%"); 
+2D38:  MOVLW  BC
+2D3A:  MOVWF  FF6
+2D3C:  MOVLW  03
+2D3E:  MOVWF  FF7
+2D40:  MOVLW  0C
+2D42:  MOVWF  6D
+2D44:  CALL   0C7A
+2D48:  MOVFF  41,6D
+2D4C:  MOVLW  03
+2D4E:  MOVWF  6E
+2D50:  CALL   0D74
+2D54:  MOVLW  D0
+2D56:  MOVWF  FF6
+2D58:  MOVLW  03
+2D5A:  MOVWF  FF7
+2D5C:  CALL   0924
+....................           if(!input(pin_c1))                   //TECLA SETA PARA CIMA 
+2D60:  BSF    F94.1
+2D62:  BTFSC  F82.1
+2D64:  BRA    2D68
+....................           {RHdesAR++;} 
+2D66:  INCF   41,F
+....................           if(!input(pin_c2))                   //TECLA SETA PARA BAIXO 
+2D68:  BSF    F94.2
+2D6A:  BTFSC  F82.2
+2D6C:  BRA    2D70
+....................           {RHdesAR--;} 
+2D6E:  DECF   41,F
+....................           if(RHdesAR<1)                        //Estipula Limites para RHdes 
+2D70:  MOVF   41,F
+2D72:  BNZ   2D78
+....................           {RHdesAR=1;} 
+2D74:  MOVLW  01
+2D76:  MOVWF  41
+....................           if(RhdesAR>100)   
+2D78:  MOVF   41,W
+2D7A:  SUBLW  64
+2D7C:  BC    2D82
+....................           {RHdesAR=100;} 
+2D7E:  MOVLW  64
+2D80:  MOVWF  41
+....................          }        
+....................          if(controledestring3==5) 
+2D82:  MOVF   5A,W
+2D84:  SUBLW  05
+2D86:  BNZ   2E0E
+....................          { 
+....................           leituraeeprom=H; 
+2D88:  MOVFF  52,56
+....................           lcd_pos_xy(1,1); 
+2D8C:  MOVLW  01
+2D8E:  MOVWF  7B
+2D90:  MOVWF  7C
+2D92:  CALL   08BA
+....................           printf(lcd_escreve,"Ajustar Relogio"); 
+2D96:  MOVLW  D2
+2D98:  MOVWF  FF6
+2D9A:  MOVLW  03
+2D9C:  MOVWF  FF7
+2D9E:  CALL   0924
+....................           lcd_pos_xy(5,2); 
+2DA2:  MOVLW  05
+2DA4:  MOVWF  7B
+2DA6:  MOVLW  02
+2DA8:  MOVWF  7C
+2DAA:  CALL   08BA
+....................           printf(lcd_escreve,"%c%02d:%02d      ",0x7E,H,M); 
+2DAE:  MOVLW  7E
+2DB0:  MOVWF  7A
+2DB2:  CALL   08DC
+2DB6:  MOVFF  52,6D
+2DBA:  MOVLW  01
+2DBC:  MOVWF  6E
+2DBE:  CALL   0D74
+2DC2:  MOVLW  3A
+2DC4:  MOVWF  7A
+2DC6:  CALL   08DC
+2DCA:  MOVFF  53,6D
+2DCE:  MOVLW  01
+2DD0:  MOVWF  6E
+2DD2:  CALL   0D74
+2DD6:  MOVLW  ED
+2DD8:  MOVWF  FF6
+2DDA:  MOVLW  03
+2DDC:  MOVWF  FF7
+2DDE:  MOVLW  06
+2DE0:  MOVWF  6D
+2DE2:  CALL   0C7A
+....................           if(!input(pin_c1)) 
+2DE6:  BSF    F94.1
+2DE8:  BTFSC  F82.1
+2DEA:  BRA    2DEE
+....................           {H++;} 
+2DEC:  INCF   52,F
+....................           if(!input(pin_c2)) 
+2DEE:  BSF    F94.2
+2DF0:  BTFSC  F82.2
+2DF2:  BRA    2DF6
+....................           {H--;} 
+2DF4:  DECF   52,F
+....................           if(H<1)         //Estipula limites para H 
+2DF6:  MOVF   52,F
+2DF8:  BNZ   2DFC
+....................           {H=0;} 
+2DFA:  CLRF   52
+....................           if(H>23) 
+2DFC:  MOVF   52,W
+2DFE:  SUBLW  17
+2E00:  BC    2E06
+....................           {H=23;} 
+2E02:  MOVLW  17
+2E04:  MOVWF  52
+....................           if(leituraeeprom!=H) 
+2E06:  MOVF   52,W
+2E08:  SUBWF  56,W
+2E0A:  BZ    2E0E
+....................           {S=0;} 
+2E0C:  CLRF   54
+....................          } 
+....................          if(controledestring3==6) 
+2E0E:  MOVF   5A,W
+2E10:  SUBLW  06
+2E12:  BNZ   2E9A
+....................          { 
+....................           leituraeeprom=M; 
+2E14:  MOVFF  53,56
+....................           lcd_pos_xy(1,1); 
+2E18:  MOVLW  01
+2E1A:  MOVWF  7B
+2E1C:  MOVWF  7C
+2E1E:  CALL   08BA
+....................           printf(lcd_escreve,"Ajustar Relogio"); 
+2E22:  MOVLW  F4
+2E24:  MOVWF  FF6
+2E26:  MOVLW  03
+2E28:  MOVWF  FF7
+2E2A:  CALL   0924
+....................           lcd_pos_xy(6,2); 
+2E2E:  MOVLW  06
+2E30:  MOVWF  7B
+2E32:  MOVLW  02
+2E34:  MOVWF  7C
+2E36:  CALL   08BA
+....................           printf(lcd_escreve,"%02d:%02d%c      ",H,M,0x7F); 
+2E3A:  MOVFF  52,6D
+2E3E:  MOVLW  01
+2E40:  MOVWF  6E
+2E42:  CALL   0D74
+2E46:  MOVLW  3A
+2E48:  MOVWF  7A
+2E4A:  CALL   08DC
+2E4E:  MOVFF  53,6D
+2E52:  MOVLW  01
+2E54:  MOVWF  6E
+2E56:  CALL   0D74
+2E5A:  MOVLW  7F
+2E5C:  MOVWF  7A
+2E5E:  CALL   08DC
+2E62:  MOVLW  0F
+2E64:  MOVWF  FF6
+2E66:  MOVLW  04
+2E68:  MOVWF  FF7
+2E6A:  MOVLW  06
+2E6C:  MOVWF  6D
+2E6E:  CALL   0C7A
+....................           if(!input(pin_c1)) 
+2E72:  BSF    F94.1
+2E74:  BTFSC  F82.1
+2E76:  BRA    2E7A
+....................           {M++;} 
+2E78:  INCF   53,F
+....................           if(!input(pin_c2)) 
+2E7A:  BSF    F94.2
+2E7C:  BTFSC  F82.2
+2E7E:  BRA    2E82
+....................           {M--;} 
+2E80:  DECF   53,F
+....................           if(M<1)         //Estipula limites para M 
+2E82:  MOVF   53,F
+2E84:  BNZ   2E88
+....................           {M=0;} 
+2E86:  CLRF   53
+....................           if(M>59) 
+2E88:  MOVF   53,W
+2E8A:  SUBLW  3B
+2E8C:  BC    2E92
+....................           {M=59;} 
+2E8E:  MOVLW  3B
+2E90:  MOVWF  53
+....................           if(leituraeeprom!=M) 
+2E92:  MOVF   53,W
+2E94:  SUBWF  56,W
+2E96:  BZ    2E9A
+....................           {S=0;} 
+2E98:  CLRF   54
+....................          } 
+....................          if(controledestring3==7) 
+2E9A:  MOVF   5A,W
+2E9C:  SUBLW  07
+2E9E:  BNZ   2F14
+....................          { 
+....................           lcd_pos_xy(1,1); 
+2EA0:  MOVLW  01
+2EA2:  MOVWF  7B
+2EA4:  MOVWF  7C
+2EA6:  CALL   08BA
+....................           printf(lcd_escreve,"Timer Irrigacao "); 
+2EAA:  MOVLW  16
+2EAC:  MOVWF  FF6
+2EAE:  MOVLW  04
+2EB0:  MOVWF  FF7
+2EB2:  CALL   0924
+....................           if(timerdabomba==0&&timersobeautomatico==0) 
+2EB6:  BTFSC  24.4
+2EB8:  BRA    2ED8
+2EBA:  BTFSC  24.5
+2EBC:  BRA    2ED8
+....................           { 
+....................            lcd_pos_xy(1,2); 
+2EBE:  MOVLW  01
+2EC0:  MOVWF  7B
+2EC2:  MOVLW  02
+2EC4:  MOVWF  7C
+2EC6:  CALL   08BA
+....................            printf(lcd_escreve,"Desabilitado    "); 
+2ECA:  MOVLW  28
+2ECC:  MOVWF  FF6
+2ECE:  MOVLW  04
+2ED0:  MOVWF  FF7
+2ED2:  CALL   0924
+....................            mododabomba=0; 
+2ED6:  CLRF   35
+....................           } 
+....................           if(timerdabomba==1||timersobeautomatico==1) 
+2ED8:  BTFSC  24.4
+2EDA:  BRA    2EE0
+2EDC:  BTFSS  24.5
+2EDE:  BRA    2F04
+....................           { 
+....................            lcd_pos_xy(1,2); 
+2EE0:  MOVLW  01
+2EE2:  MOVWF  7B
+2EE4:  MOVLW  02
+2EE6:  MOVWF  7C
+2EE8:  CALL   08BA
+....................            printf(lcd_escreve,"Habilitado      "); 
+2EEC:  MOVLW  3A
+2EEE:  MOVWF  FF6
+2EF0:  MOVLW  04
+2EF2:  MOVWF  FF7
+2EF4:  CALL   0924
+....................            mododabomba=2; 
+2EF8:  MOVLW  02
+2EFA:  MOVWF  35
+....................            tempo_on=0; 
+2EFC:  CLRF   2A
+2EFE:  CLRF   29
+....................            tempo_off=0; 
+2F00:  CLRF   2C
+2F02:  CLRF   2B
+....................           } 
+....................           if(!input(pin_c1)) 
+2F04:  BSF    F94.1
+2F06:  BTFSC  F82.1
+2F08:  BRA    2F0C
+....................           {timerdabomba=1;} 
+2F0A:  BSF    24.4
+....................           if(!input(pin_c2)) 
+2F0C:  BSF    F94.2
+2F0E:  BTFSC  F82.2
+2F10:  BRA    2F14
+....................           {timerdabomba=0;} 
+2F12:  BCF    24.4
+....................         } 
+....................         if(controledestring3==8) 
+2F14:  MOVF   5A,W
+2F16:  SUBLW  08
+2F18:  BNZ   2F9C
+....................         { 
+....................          lcd_pos_xy(1,1); 
+2F1A:  MOVLW  01
+2F1C:  MOVWF  7B
+2F1E:  MOVWF  7C
+2F20:  CALL   08BA
+....................          printf(lcd_escreve,"Timer Irrigacao"); 
+2F24:  MOVLW  4C
+2F26:  MOVWF  FF6
+2F28:  MOVLW  04
+2F2A:  MOVWF  FF7
+2F2C:  CALL   0924
+....................          lcd_pos_xy(1,2); 
+2F30:  MOVLW  01
+2F32:  MOVWF  7B
+2F34:  MOVLW  02
+2F36:  MOVWF  7C
+2F38:  CALL   08BA
+....................          printf(lcd_escreve,"Ligar:   %c%02d:%02d ",0x7E,horabombaligada,minutobombaligada); 
+2F3C:  MOVLW  5C
+2F3E:  MOVWF  FF6
+2F40:  MOVLW  04
+2F42:  MOVWF  FF7
+2F44:  MOVLW  09
+2F46:  MOVWF  6D
+2F48:  CALL   0C7A
+2F4C:  MOVLW  7E
+2F4E:  MOVWF  7A
+2F50:  CALL   08DC
+2F54:  MOVFF  36,6D
+2F58:  MOVLW  01
+2F5A:  MOVWF  6E
+2F5C:  CALL   0D74
+2F60:  MOVLW  3A
+2F62:  MOVWF  7A
+2F64:  CALL   08DC
+2F68:  MOVFF  38,6D
+2F6C:  MOVLW  01
+2F6E:  MOVWF  6E
+2F70:  CALL   0D74
+2F74:  MOVLW  20
+2F76:  MOVWF  7A
+2F78:  CALL   08DC
+....................          if(!input(pin_c1)) 
+2F7C:  BSF    F94.1
+2F7E:  BTFSC  F82.1
+2F80:  BRA    2F84
+....................          {horabombaligada++;} 
+2F82:  INCF   36,F
+....................          if(!input(pin_c2)) 
+2F84:  BSF    F94.2
+2F86:  BTFSC  F82.2
+2F88:  BRA    2F8C
+....................          {horabombaligada--;} 
+2F8A:  DECF   36,F
+....................          if(horabombaligada<1) 
+2F8C:  MOVF   36,F
+2F8E:  BNZ   2F92
+....................          {horabombaligada=0;} 
+2F90:  CLRF   36
+....................          if(horabombaligada>23) 
+2F92:  MOVF   36,W
+2F94:  SUBLW  17
+2F96:  BC    2F9C
+....................          {horabombaligada=23;} 
+2F98:  MOVLW  17
+2F9A:  MOVWF  36
+....................         } 
+....................         if(controledestring3==9) 
+2F9C:  MOVF   5A,W
+2F9E:  SUBLW  09
+2FA0:  BNZ   301C
+....................         { 
+....................          lcd_pos_xy(1,1); 
+2FA2:  MOVLW  01
+2FA4:  MOVWF  7B
+2FA6:  MOVWF  7C
+2FA8:  CALL   08BA
+....................          printf(lcd_escreve,"Timer Irrigacao"); 
+2FAC:  MOVLW  72
+2FAE:  MOVWF  FF6
+2FB0:  MOVLW  04
+2FB2:  MOVWF  FF7
+2FB4:  CALL   0924
+....................          lcd_pos_xy(1,2); 
+2FB8:  MOVLW  01
+2FBA:  MOVWF  7B
+2FBC:  MOVLW  02
+2FBE:  MOVWF  7C
+2FC0:  CALL   08BA
+....................          printf(lcd_escreve,"Ligar:    %02d:%02d%c",horabombaligada,minutobombaligada,0x7F); 
+2FC4:  MOVLW  82
+2FC6:  MOVWF  FF6
+2FC8:  MOVLW  04
+2FCA:  MOVWF  FF7
+2FCC:  MOVLW  0A
+2FCE:  MOVWF  6D
+2FD0:  CALL   0C7A
+2FD4:  MOVFF  36,6D
+2FD8:  MOVLW  01
+2FDA:  MOVWF  6E
+2FDC:  CALL   0D74
+2FE0:  MOVLW  3A
+2FE2:  MOVWF  7A
+2FE4:  CALL   08DC
+2FE8:  MOVFF  38,6D
+2FEC:  MOVLW  01
+2FEE:  MOVWF  6E
+2FF0:  CALL   0D74
+2FF4:  MOVLW  7F
+2FF6:  MOVWF  7A
+2FF8:  CALL   08DC
+....................          if(!input(pin_c1)) 
+2FFC:  BSF    F94.1
+2FFE:  BTFSC  F82.1
+3000:  BRA    3004
+....................          {minutobombaligada++;} 
+3002:  INCF   38,F
+....................          if(!input(pin_c2)) 
+3004:  BSF    F94.2
+3006:  BTFSC  F82.2
+3008:  BRA    300C
+....................          {minutobombaligada--;} 
+300A:  DECF   38,F
+....................          if(minutobombaligada<1) 
+300C:  MOVF   38,F
+300E:  BNZ   3012
+....................          {minutobombaligada=0;} 
+3010:  CLRF   38
+....................          if(minutobombaligada>59) 
+3012:  MOVF   38,W
+3014:  SUBLW  3B
+3016:  BC    301C
+....................          {minutobombaligada=59;} 
+3018:  MOVLW  3B
+301A:  MOVWF  38
+....................         } 
+....................         if(controledestring3==10) 
+301C:  MOVF   5A,W
+301E:  SUBLW  0A
+3020:  BNZ   30A4
+....................         { 
+....................          lcd_pos_xy(1,1); 
+3022:  MOVLW  01
+3024:  MOVWF  7B
+3026:  MOVWF  7C
+3028:  CALL   08BA
+....................          printf(lcd_escreve,"Timer Irrigacao"); 
+302C:  MOVLW  98
+302E:  MOVWF  FF6
+3030:  MOVLW  04
+3032:  MOVWF  FF7
+3034:  CALL   0924
+....................          lcd_pos_xy(1,2); 
+3038:  MOVLW  01
+303A:  MOVWF  7B
+303C:  MOVLW  02
+303E:  MOVWF  7C
+3040:  CALL   08BA
+....................          printf(lcd_escreve,"Desligar:%c%02d:%02d ",0x7E,horabombadesligada,minutobombadesligada); 
+3044:  MOVLW  A8
+3046:  MOVWF  FF6
+3048:  MOVLW  04
+304A:  MOVWF  FF7
+304C:  MOVLW  09
+304E:  MOVWF  6D
+3050:  CALL   0C7A
+3054:  MOVLW  7E
+3056:  MOVWF  7A
+3058:  CALL   08DC
+305C:  MOVFF  37,6D
+3060:  MOVLW  01
+3062:  MOVWF  6E
+3064:  CALL   0D74
+3068:  MOVLW  3A
+306A:  MOVWF  7A
+306C:  CALL   08DC
+3070:  MOVFF  39,6D
+3074:  MOVLW  01
+3076:  MOVWF  6E
+3078:  CALL   0D74
+307C:  MOVLW  20
+307E:  MOVWF  7A
+3080:  CALL   08DC
+....................          if(!input(pin_c1)) 
+3084:  BSF    F94.1
+3086:  BTFSC  F82.1
+3088:  BRA    308C
+....................          {horabombadesligada++;} 
+308A:  INCF   37,F
+....................          if(!input(pin_c2)) 
+308C:  BSF    F94.2
+308E:  BTFSC  F82.2
+3090:  BRA    3094
+....................          {horabombadesligada--;} 
+3092:  DECF   37,F
+....................          if(horabombadesligada<1) 
+3094:  MOVF   37,F
+3096:  BNZ   309A
+....................          {horabombadesligada=0;} 
+3098:  CLRF   37
+....................          if(horabombadesligada>23) 
+309A:  MOVF   37,W
+309C:  SUBLW  17
+309E:  BC    30A4
+....................          {horabombadesligada=23;} 
+30A0:  MOVLW  17
+30A2:  MOVWF  37
+....................         } 
+....................         if(controledestring3==11) 
+30A4:  MOVF   5A,W
+30A6:  SUBLW  0B
+30A8:  BNZ   3124
+....................         { 
+....................          lcd_pos_xy(1,1); 
+30AA:  MOVLW  01
+30AC:  MOVWF  7B
+30AE:  MOVWF  7C
+30B0:  CALL   08BA
+....................          printf(lcd_escreve,"Timer Irrigacao"); 
+30B4:  MOVLW  BE
+30B6:  MOVWF  FF6
+30B8:  MOVLW  04
+30BA:  MOVWF  FF7
+30BC:  CALL   0924
+....................          lcd_pos_xy(1,2); 
+30C0:  MOVLW  01
+30C2:  MOVWF  7B
+30C4:  MOVLW  02
+30C6:  MOVWF  7C
+30C8:  CALL   08BA
+....................          printf(lcd_escreve,"Desligar: %02d:%02d%c",horabombadesligada,minutobombadesligada,0x7F); 
+30CC:  MOVLW  CE
+30CE:  MOVWF  FF6
+30D0:  MOVLW  04
+30D2:  MOVWF  FF7
+30D4:  MOVLW  0A
+30D6:  MOVWF  6D
+30D8:  CALL   0C7A
+30DC:  MOVFF  37,6D
+30E0:  MOVLW  01
+30E2:  MOVWF  6E
+30E4:  CALL   0D74
+30E8:  MOVLW  3A
+30EA:  MOVWF  7A
+30EC:  CALL   08DC
+30F0:  MOVFF  39,6D
+30F4:  MOVLW  01
+30F6:  MOVWF  6E
+30F8:  CALL   0D74
+30FC:  MOVLW  7F
+30FE:  MOVWF  7A
+3100:  CALL   08DC
+....................          if(!input(pin_c1)) 
+3104:  BSF    F94.1
+3106:  BTFSC  F82.1
+3108:  BRA    310C
+....................          {minutobombadesligada++;} 
+310A:  INCF   39,F
+....................          if(!input(pin_c2)) 
+310C:  BSF    F94.2
+310E:  BTFSC  F82.2
+3110:  BRA    3114
+....................          {minutobombadesligada--;} 
+3112:  DECF   39,F
+....................          if(minutobombadesligada<1) 
+3114:  MOVF   39,F
+3116:  BNZ   311A
+....................          {minutobombadesligada=0;} 
+3118:  CLRF   39
+....................          if(minutobombadesligada>59) 
+311A:  MOVF   39,W
+311C:  SUBLW  3B
+311E:  BC    3124
+....................          {minutobombadesligada=59;} 
+3120:  MOVLW  3B
+3122:  MOVWF  39
+....................         } 
+....................          
+....................         controletempo++; 
+3124:  INCF   55,F
+....................         if(controletempo>=10) 
+3126:  MOVF   55,W
+3128:  SUBLW  09
+312A:  BC    3130
+....................         {S++;controletempo=0;} 
+312C:  INCF   54,F
+312E:  CLRF   55
+....................         if(S>59) 
+3130:  MOVF   54,W
+3132:  SUBLW  3B
+3134:  BC    313A
+....................         {S=0;M++;} 
+3136:  CLRF   54
+3138:  INCF   53,F
+....................         if(M>59) 
+313A:  MOVF   53,W
+313C:  SUBLW  3B
+313E:  BC    3146
+....................         {S=0;M=0;H++;} 
+3140:  CLRF   54
+3142:  CLRF   53
+3144:  INCF   52,F
+....................         if(H>23) 
+3146:  MOVF   52,W
+3148:  SUBLW  17
+314A:  BC    3152
+....................         {H=0; M=0; S=0;} 
+314C:  CLRF   52
+314E:  CLRF   53
+3150:  CLRF   54
+....................        
+....................       }//while menu 
+3152:  BRA    2AB6
+....................    }// if menu 
+....................    if(!input(pin_c3))         
+3154:  BSF    F94.3
+3156:  BTFSC  F82.3
+3158:  BRA    316C
+....................    { 
+....................     controledestring=0; 
+315A:  CLRF   58
+....................     controledestring2=0; 
+315C:  CLRF   59
+....................     controledestring3=0; 
+315E:  CLRF   5A
+....................     verificateclaC1=0; 
+3160:  BCF    68.1
+....................     teclapressionada=0; 
+3162:  CLRF   60
+....................     verificateclaC0=0; 
+3164:  BCF    68.2
+....................     teclapressionadaMenu=0; 
+3166:  CLRF   61
+....................     teclapressionadaMenu2=0; 
+3168:  CLRF   62
+....................     controle=0; 
+316A:  CLRF   5B
+....................    } 
+....................  
+.................... //RELOGIO 
+....................    controletempo++; 
+316C:  INCF   55,F
+....................    if(controletempo>=8) 
+316E:  MOVF   55,W
+3170:  SUBLW  07
+3172:  BC    3178
+....................    {S++;controletempo=0;} 
+3174:  INCF   54,F
+3176:  CLRF   55
+....................    if(S>59) 
+3178:  MOVF   54,W
+317A:  SUBLW  3B
+317C:  BC    3182
+....................    {S=0;M++;} 
+317E:  CLRF   54
+3180:  INCF   53,F
+....................    if(M>59) 
+3182:  MOVF   53,W
+3184:  SUBLW  3B
+3186:  BC    318E
+....................    {S=0;M=0;H++;} 
+3188:  CLRF   54
+318A:  CLRF   53
+318C:  INCF   52,F
+....................    if(H>23) 
+318E:  MOVF   52,W
+3190:  SUBLW  17
+3192:  BC    319A
+....................    {H=0; M=0; S=0;} 
+3194:  CLRF   52
+3196:  CLRF   53
+3198:  CLRF   54
+....................                    
+.................... //TIMER DA BOMBA 
+....................  /*  if(timerdabomba==0&&timersobeautomatico==0) 
+....................    { 
+....................      mododabomba=0; 
+....................    } */ 
+....................     
+....................    if(timersobeautomatico==1) 
+319A:  BTFSS  24.5
+319C:  BRA    31AA
+....................    { 
+....................     mododabomba=2; 
+319E:  MOVLW  02
+31A0:  MOVWF  35
+....................     tempo_on=0; 
+31A2:  CLRF   2A
+31A4:  CLRF   29
+....................     tempo_off=0; 
+31A6:  CLRF   2C
+31A8:  CLRF   2B
+....................    } 
+....................     
+....................     
+....................    if(horabombaligada==horabombadesligada&&minutobombaligada==minutobombadesligada) 
+31AA:  MOVF   37,W
+31AC:  SUBWF  36,W
+31AE:  BNZ   31B8
+31B0:  MOVF   39,W
+31B2:  SUBWF  38,W
+31B4:  BNZ   31B8
+....................    {minutobombadesligada++;} 
+31B6:  INCF   39,F
+....................     
+....................    if(timerdabomba==1&&minutobombaligada==M&&horabombaligada==H&&erro1==0) 
+31B8:  BTFSS  24.4
+31BA:  BRA    31D0
+31BC:  MOVF   53,W
+31BE:  SUBWF  38,W
+31C0:  BNZ   31D0
+31C2:  MOVF   52,W
+31C4:  SUBWF  36,W
+31C6:  BNZ   31D0
+31C8:  BTFSC  24.7
+31CA:  BRA    31D0
+....................    { 
+....................     output_high(pin_D4); 
+31CC:  BCF    F95.4
+31CE:  BSF    F8C.4
+....................    } 
+....................    if(timersobeautomatico==1&&minutobombaligada==M&&horabombaligada==H&&erro1==0) 
+31D0:  BTFSS  24.5
+31D2:  BRA    31E8
+31D4:  MOVF   53,W
+31D6:  SUBWF  38,W
+31D8:  BNZ   31E8
+31DA:  MOVF   52,W
+31DC:  SUBWF  36,W
+31DE:  BNZ   31E8
+31E0:  BTFSC  24.7
+31E2:  BRA    31E8
+....................    { 
+....................     output_high(pin_D4); 
+31E4:  BCF    F95.4
+31E6:  BSF    F8C.4
+....................    }  
+....................     
+....................    if(timerdabomba==1&&minutobombadesligada==M&&horabombadesligada==H) 
+31E8:  BTFSS  24.4
+31EA:  BRA    31FC
+31EC:  MOVF   53,W
+31EE:  SUBWF  39,W
+31F0:  BNZ   31FC
+31F2:  MOVF   52,W
+31F4:  SUBWF  37,W
+31F6:  BNZ   31FC
+....................    { 
+....................     output_low(pin_D4); 
+31F8:  BCF    F95.4
+31FA:  BCF    F8C.4
+....................    } 
+....................    if(timersobeautomatico==1&&minutobombadesligada==M&&horabombadesligada==H) 
+31FC:  BTFSS  24.5
+31FE:  BRA    3210
+3200:  MOVF   53,W
+3202:  SUBWF  39,W
+3204:  BNZ   3210
+3206:  MOVF   52,W
+3208:  SUBWF  37,W
+320A:  BNZ   3210
+....................    { 
+....................     output_low(pin_D4); 
+320C:  BCF    F95.4
+320E:  BCF    F8C.4
+....................    } 
+....................     
+.................... //Salva valores 
+....................    leituraEeprom=read_eeprom(1); 
+3210:  MOVFF  FF2,6D
+3214:  BCF    FF2.7
+3216:  MOVLW  01
+3218:  MOVWF  FA9
+321A:  BCF    FA6.6
+321C:  BCF    FA6.7
+321E:  BSF    FA6.0
+3220:  MOVF   FA8,W
+3222:  BTFSC  6D.7
+3224:  BSF    FF2.7
+3226:  MOVWF  56
+....................    if(leituraEeprom!=Tmin) 
+3228:  MOVF   20,W
+322A:  SUBWF  56,W
+322C:  BZ    325A
+....................    {write_eeprom(1,Tmin);} 
+322E:  MOVLW  01
+3230:  MOVWF  FA9
+3232:  MOVFF  20,FA8
+3236:  BCF    FA6.6
+3238:  BCF    FA6.7
+323A:  BSF    FA6.2
+323C:  MOVF   FF2,W
+323E:  MOVWF  00
+3240:  BCF    FF2.7
+3242:  MOVLB  F
+3244:  MOVLW  55
+3246:  MOVWF  FA7
+3248:  MOVLW  AA
+324A:  MOVWF  FA7
+324C:  BSF    FA6.1
+324E:  BTFSC  FA6.1
+3250:  BRA    324E
+3252:  BCF    FA6.2
+3254:  MOVF   00,W
+3256:  IORWF  FF2,F
+3258:  MOVLB  0
+....................     
+....................    leituraEeprom=read_eeprom(2); 
+325A:  MOVFF  FF2,6D
+325E:  BCF    FF2.7
+3260:  MOVLW  02
+3262:  MOVWF  FA9
+3264:  BCF    FA6.6
+3266:  BCF    FA6.7
+3268:  BSF    FA6.0
+326A:  MOVF   FA8,W
+326C:  BTFSC  6D.7
+326E:  BSF    FF2.7
+3270:  MOVWF  56
+....................    if(leituraEeprom!=Tmax) 
+3272:  MOVF   21,W
+3274:  SUBWF  56,W
+3276:  BZ    32A4
+....................    {write_eeprom(2,Tmax);} 
+3278:  MOVLW  02
+327A:  MOVWF  FA9
+327C:  MOVFF  21,FA8
+3280:  BCF    FA6.6
+3282:  BCF    FA6.7
+3284:  BSF    FA6.2
+3286:  MOVF   FF2,W
+3288:  MOVWF  00
+328A:  BCF    FF2.7
+328C:  MOVLB  F
+328E:  MOVLW  55
+3290:  MOVWF  FA7
+3292:  MOVLW  AA
+3294:  MOVWF  FA7
+3296:  BSF    FA6.1
+3298:  BTFSC  FA6.1
+329A:  BRA    3298
+329C:  BCF    FA6.2
+329E:  MOVF   00,W
+32A0:  IORWF  FF2,F
+32A2:  MOVLB  0
+....................     
+....................    leituraEeprom=read_eeprom(3); 
+32A4:  MOVFF  FF2,6D
+32A8:  BCF    FF2.7
+32AA:  MOVLW  03
+32AC:  MOVWF  FA9
+32AE:  BCF    FA6.6
+32B0:  BCF    FA6.7
+32B2:  BSF    FA6.0
+32B4:  MOVF   FA8,W
+32B6:  BTFSC  6D.7
+32B8:  BSF    FF2.7
+32BA:  MOVWF  56
+....................    if(leituraEeprom!=RHdesSOLO) 
+32BC:  MOVF   34,W
+32BE:  SUBWF  56,W
+32C0:  BZ    32F6
+....................    {write_eeprom(3,RHdesSOLO);tempo_on=0;tempo_off=0;} 
+32C2:  MOVLW  03
+32C4:  MOVWF  FA9
+32C6:  MOVFF  34,FA8
+32CA:  BCF    FA6.6
+32CC:  BCF    FA6.7
+32CE:  BSF    FA6.2
+32D0:  MOVF   FF2,W
+32D2:  MOVWF  00
+32D4:  BCF    FF2.7
+32D6:  MOVLB  F
+32D8:  MOVLW  55
+32DA:  MOVWF  FA7
+32DC:  MOVLW  AA
+32DE:  MOVWF  FA7
+32E0:  BSF    FA6.1
+32E2:  BTFSC  FA6.1
+32E4:  BRA    32E2
+32E6:  BCF    FA6.2
+32E8:  MOVF   00,W
+32EA:  IORWF  FF2,F
+32EC:  CLRF   2A
+32EE:  CLRF   29
+32F0:  CLRF   2C
+32F2:  CLRF   2B
+32F4:  MOVLB  0
+....................     
+....................    leituraEeprom=read_eeprom(4); 
+32F6:  MOVFF  FF2,6D
+32FA:  BCF    FF2.7
+32FC:  MOVLW  04
+32FE:  MOVWF  FA9
+3300:  BCF    FA6.6
+3302:  BCF    FA6.7
+3304:  BSF    FA6.0
+3306:  MOVF   FA8,W
+3308:  BTFSC  6D.7
+330A:  BSF    FF2.7
+330C:  MOVWF  56
+....................    if(leituraEeprom!=RHdesAR) 
+330E:  MOVF   41,W
+3310:  SUBWF  56,W
+3312:  BZ    3340
+....................    {write_eeprom(4,RHdesAR);} 
+3314:  MOVLW  04
+3316:  MOVWF  FA9
+3318:  MOVFF  41,FA8
+331C:  BCF    FA6.6
+331E:  BCF    FA6.7
+3320:  BSF    FA6.2
+3322:  MOVF   FF2,W
+3324:  MOVWF  00
+3326:  BCF    FF2.7
+3328:  MOVLB  F
+332A:  MOVLW  55
+332C:  MOVWF  FA7
+332E:  MOVLW  AA
+3330:  MOVWF  FA7
+3332:  BSF    FA6.1
+3334:  BTFSC  FA6.1
+3336:  BRA    3334
+3338:  BCF    FA6.2
+333A:  MOVF   00,W
+333C:  IORWF  FF2,F
+333E:  MOVLB  0
+....................     
+....................    leituraEeprom=read_eeprom(5); 
+3340:  MOVFF  FF2,6D
+3344:  BCF    FF2.7
+3346:  MOVLW  05
+3348:  MOVWF  FA9
+334A:  BCF    FA6.6
+334C:  BCF    FA6.7
+334E:  BSF    FA6.0
+3350:  MOVF   FA8,W
+3352:  BTFSC  6D.7
+3354:  BSF    FF2.7
+3356:  MOVWF  56
+....................    if(leituraEeprom!=horabombaligada) 
+3358:  MOVF   36,W
+335A:  SUBWF  56,W
+335C:  BZ    338A
+....................    {write_eeprom(5,horabombaligada);} 
+335E:  MOVLW  05
+3360:  MOVWF  FA9
+3362:  MOVFF  36,FA8
+3366:  BCF    FA6.6
+3368:  BCF    FA6.7
+336A:  BSF    FA6.2
+336C:  MOVF   FF2,W
+336E:  MOVWF  00
+3370:  BCF    FF2.7
+3372:  MOVLB  F
+3374:  MOVLW  55
+3376:  MOVWF  FA7
+3378:  MOVLW  AA
+337A:  MOVWF  FA7
+337C:  BSF    FA6.1
+337E:  BTFSC  FA6.1
+3380:  BRA    337E
+3382:  BCF    FA6.2
+3384:  MOVF   00,W
+3386:  IORWF  FF2,F
+3388:  MOVLB  0
+....................     
+....................    leituraEeprom=read_eeprom(6); 
+338A:  MOVFF  FF2,6D
+338E:  BCF    FF2.7
+3390:  MOVLW  06
+3392:  MOVWF  FA9
+3394:  BCF    FA6.6
+3396:  BCF    FA6.7
+3398:  BSF    FA6.0
+339A:  MOVF   FA8,W
+339C:  BTFSC  6D.7
+339E:  BSF    FF2.7
+33A0:  MOVWF  56
+....................    if(leituraEeprom!=horabombadesligada) 
+33A2:  MOVF   37,W
+33A4:  SUBWF  56,W
+33A6:  BZ    33D4
+....................    {write_eeprom(6,horabombadesligada);} 
+33A8:  MOVLW  06
+33AA:  MOVWF  FA9
+33AC:  MOVFF  37,FA8
+33B0:  BCF    FA6.6
+33B2:  BCF    FA6.7
+33B4:  BSF    FA6.2
+33B6:  MOVF   FF2,W
+33B8:  MOVWF  00
+33BA:  BCF    FF2.7
+33BC:  MOVLB  F
+33BE:  MOVLW  55
+33C0:  MOVWF  FA7
+33C2:  MOVLW  AA
+33C4:  MOVWF  FA7
+33C6:  BSF    FA6.1
+33C8:  BTFSC  FA6.1
+33CA:  BRA    33C8
+33CC:  BCF    FA6.2
+33CE:  MOVF   00,W
+33D0:  IORWF  FF2,F
+33D2:  MOVLB  0
+....................     
+....................    leituraEeprom=read_eeprom(7); 
+33D4:  MOVFF  FF2,6D
+33D8:  BCF    FF2.7
+33DA:  MOVLW  07
+33DC:  MOVWF  FA9
+33DE:  BCF    FA6.6
+33E0:  BCF    FA6.7
+33E2:  BSF    FA6.0
+33E4:  MOVF   FA8,W
+33E6:  BTFSC  6D.7
+33E8:  BSF    FF2.7
+33EA:  MOVWF  56
+....................    if(leituraEeprom!=minutobombaligada) 
+33EC:  MOVF   38,W
+33EE:  SUBWF  56,W
+33F0:  BZ    341E
+....................    {write_eeprom(7,minutobombaligada);} 
+33F2:  MOVLW  07
+33F4:  MOVWF  FA9
+33F6:  MOVFF  38,FA8
+33FA:  BCF    FA6.6
+33FC:  BCF    FA6.7
+33FE:  BSF    FA6.2
+3400:  MOVF   FF2,W
+3402:  MOVWF  00
+3404:  BCF    FF2.7
+3406:  MOVLB  F
+3408:  MOVLW  55
+340A:  MOVWF  FA7
+340C:  MOVLW  AA
+340E:  MOVWF  FA7
+3410:  BSF    FA6.1
+3412:  BTFSC  FA6.1
+3414:  BRA    3412
+3416:  BCF    FA6.2
+3418:  MOVF   00,W
+341A:  IORWF  FF2,F
+341C:  MOVLB  0
+....................     
+....................    leituraEeprom=read_eeprom(8); 
+341E:  MOVFF  FF2,6D
+3422:  BCF    FF2.7
+3424:  MOVLW  08
+3426:  MOVWF  FA9
+3428:  BCF    FA6.6
+342A:  BCF    FA6.7
+342C:  BSF    FA6.0
+342E:  MOVF   FA8,W
+3430:  BTFSC  6D.7
+3432:  BSF    FF2.7
+3434:  MOVWF  56
+....................    if(leituraEeprom!=minutobombadesligada) 
+3436:  MOVF   39,W
+3438:  SUBWF  56,W
+343A:  BZ    3468
+....................    {write_eeprom(8,minutobombadesligada);} 
+343C:  MOVLW  08
+343E:  MOVWF  FA9
+3440:  MOVFF  39,FA8
+3444:  BCF    FA6.6
+3446:  BCF    FA6.7
+3448:  BSF    FA6.2
+344A:  MOVF   FF2,W
+344C:  MOVWF  00
+344E:  BCF    FF2.7
+3450:  MOVLB  F
+3452:  MOVLW  55
+3454:  MOVWF  FA7
+3456:  MOVLW  AA
+3458:  MOVWF  FA7
+345A:  BSF    FA6.1
+345C:  BTFSC  FA6.1
+345E:  BRA    345C
+3460:  BCF    FA6.2
+3462:  MOVF   00,W
+3464:  IORWF  FF2,F
+3466:  MOVLB  0
+....................     
+....................    leituraEeprom=read_eeprom(9); 
+3468:  MOVFF  FF2,6D
+346C:  BCF    FF2.7
+346E:  MOVLW  09
+3470:  MOVWF  FA9
+3472:  BCF    FA6.6
+3474:  BCF    FA6.7
+3476:  BSF    FA6.0
+3478:  MOVF   FA8,W
+347A:  BTFSC  6D.7
+347C:  BSF    FF2.7
+347E:  MOVWF  56
+....................    if(leituraEeprom!=auxiliardeErros1) 
+3480:  MOVLW  00
+3482:  BTFSC  68.0
+3484:  MOVLW  01
+3486:  SUBWF  56,W
+3488:  BZ    34BE
+....................    {write_eeprom(9,auxiliardeErros1);} 
+348A:  MOVLW  00
+348C:  BTFSC  68.0
+348E:  MOVLW  01
+3490:  MOVWF  6D
+3492:  MOVLW  09
+3494:  MOVWF  FA9
+3496:  MOVFF  6D,FA8
+349A:  BCF    FA6.6
+349C:  BCF    FA6.7
+349E:  BSF    FA6.2
+34A0:  MOVF   FF2,W
+34A2:  MOVWF  00
+34A4:  BCF    FF2.7
+34A6:  MOVLB  F
+34A8:  MOVLW  55
+34AA:  MOVWF  FA7
+34AC:  MOVLW  AA
+34AE:  MOVWF  FA7
+34B0:  BSF    FA6.1
+34B2:  BTFSC  FA6.1
+34B4:  BRA    34B2
+34B6:  BCF    FA6.2
+34B8:  MOVF   00,W
+34BA:  IORWF  FF2,F
+34BC:  MOVLB  0
+....................     
+....................    leituraEeprom=read_eeprom(10); 
+34BE:  MOVFF  FF2,6D
+34C2:  BCF    FF2.7
+34C4:  MOVLW  0A
+34C6:  MOVWF  FA9
+34C8:  BCF    FA6.6
+34CA:  BCF    FA6.7
+34CC:  BSF    FA6.0
+34CE:  MOVF   FA8,W
+34D0:  BTFSC  6D.7
+34D2:  BSF    FF2.7
+34D4:  MOVWF  56
+....................    if(leituraEeprom!=auxiliardeErros2) 
+34D6:  MOVF   69,W
+34D8:  SUBWF  56,W
+34DA:  BZ    3508
+....................    {write_eeprom(10,auxiliardeErros2);} 
+34DC:  MOVLW  0A
+34DE:  MOVWF  FA9
+34E0:  MOVFF  69,FA8
+34E4:  BCF    FA6.6
+34E6:  BCF    FA6.7
+34E8:  BSF    FA6.2
+34EA:  MOVF   FF2,W
+34EC:  MOVWF  00
+34EE:  BCF    FF2.7
+34F0:  MOVLB  F
+34F2:  MOVLW  55
+34F4:  MOVWF  FA7
+34F6:  MOVLW  AA
+34F8:  MOVWF  FA7
+34FA:  BSF    FA6.1
+34FC:  BTFSC  FA6.1
+34FE:  BRA    34FC
+3500:  BCF    FA6.2
+3502:  MOVF   00,W
+3504:  IORWF  FF2,F
+3506:  MOVLB  0
+....................     
+....................    leituraEeprom=read_eeprom(11); 
+3508:  MOVFF  FF2,6D
+350C:  BCF    FF2.7
+350E:  MOVLW  0B
+3510:  MOVWF  FA9
+3512:  BCF    FA6.6
+3514:  BCF    FA6.7
+3516:  BSF    FA6.0
+3518:  MOVF   FA8,W
+351A:  BTFSC  6D.7
+351C:  BSF    FF2.7
+351E:  MOVWF  56
+....................    if(leituraEeprom!=auxiliardeErros4) 
+3520:  MOVF   6A,W
+3522:  SUBWF  56,W
+3524:  BZ    3552
+....................    {write_eeprom(11,auxiliardeErros4);} 
+3526:  MOVLW  0B
+3528:  MOVWF  FA9
+352A:  MOVFF  6A,FA8
+352E:  BCF    FA6.6
+3530:  BCF    FA6.7
+3532:  BSF    FA6.2
+3534:  MOVF   FF2,W
+3536:  MOVWF  00
+3538:  BCF    FF2.7
+353A:  MOVLB  F
+353C:  MOVLW  55
+353E:  MOVWF  FA7
+3540:  MOVLW  AA
+3542:  MOVWF  FA7
+3544:  BSF    FA6.1
+3546:  BTFSC  FA6.1
+3548:  BRA    3546
+354A:  BCF    FA6.2
+354C:  MOVF   00,W
+354E:  IORWF  FF2,F
+3550:  MOVLB  0
+....................     
+....................    leituraEeprom=read_eeprom(12); 
+3552:  MOVFF  FF2,6D
+3556:  BCF    FF2.7
+3558:  MOVLW  0C
+355A:  MOVWF  FA9
+355C:  BCF    FA6.6
+355E:  BCF    FA6.7
+3560:  BSF    FA6.0
+3562:  MOVF   FA8,W
+3564:  BTFSC  6D.7
+3566:  BSF    FF2.7
+3568:  MOVWF  56
+....................    if(leituraEeprom!=auxiliardeErros8) 
+356A:  MOVF   6B,W
+356C:  SUBWF  56,W
+356E:  BZ    359C
+....................    {write_eeprom(12,auxiliardeErros8);} 
+3570:  MOVLW  0C
+3572:  MOVWF  FA9
+3574:  MOVFF  6B,FA8
+3578:  BCF    FA6.6
+357A:  BCF    FA6.7
+357C:  BSF    FA6.2
+357E:  MOVF   FF2,W
+3580:  MOVWF  00
+3582:  BCF    FF2.7
+3584:  MOVLB  F
+3586:  MOVLW  55
+3588:  MOVWF  FA7
+358A:  MOVLW  AA
+358C:  MOVWF  FA7
+358E:  BSF    FA6.1
+3590:  BTFSC  FA6.1
+3592:  BRA    3590
+3594:  BCF    FA6.2
+3596:  MOVF   00,W
+3598:  IORWF  FF2,F
+359A:  MOVLB  0
+....................     
+....................     
+.................... //COMANDOS SERIAL 
+....................     
+....................    if(comando==1) 
+359C:  DECFSZ 19,W
+359E:  BRA    3688
+....................     {printf("Temperatura= %2.1f graus \r\n", Temperatura); 
+35A0:  MOVLW  E4
+35A2:  MOVWF  FF6
+35A4:  MOVLW  04
+35A6:  MOVWF  FF7
+35A8:  MOVLW  0D
+35AA:  MOVWF  6D
+35AC:  CALL   13D4
+35B0:  MOVLW  01
+35B2:  MOVWF  FE9
+35B4:  MOVFF  1D,70
+35B8:  MOVFF  1C,6F
+35BC:  MOVFF  1B,6E
+35C0:  MOVFF  1A,6D
+35C4:  MOVWF  71
+35C6:  CALL   13F4
+35CA:  MOVLW  F6
+35CC:  MOVWF  FF6
+35CE:  MOVLW  04
+35D0:  MOVWF  FF7
+35D2:  MOVLW  09
+35D4:  MOVWF  6D
+35D6:  CALL   13D4
+....................      printf("Umidade do Ar= %2.1f %s \r\n", RHar,"%"); 
+35DA:  MOVLW  00
+35DC:  MOVWF  FF6
+35DE:  MOVLW  05
+35E0:  MOVWF  FF7
+35E2:  MOVLW  0F
+35E4:  MOVWF  6D
+35E6:  CALL   13D4
+35EA:  MOVLW  01
+35EC:  MOVWF  FE9
+35EE:  MOVFF  3E,70
+35F2:  MOVFF  3D,6F
+35F6:  MOVFF  3C,6E
+35FA:  MOVFF  3B,6D
+35FE:  MOVWF  71
+3600:  CALL   13F4
+3604:  MOVLW  20
+3606:  BTFSS  F9E.4
+3608:  BRA    3606
+360A:  MOVWF  FAD
+360C:  MOVLW  1C
+360E:  MOVWF  FF6
+3610:  MOVLW  05
+3612:  MOVWF  FF7
+3614:  CALL   157C
+3618:  MOVLW  20
+361A:  BTFSS  F9E.4
+361C:  BRA    361A
+361E:  MOVWF  FAD
+3620:  MOVLW  0D
+3622:  BTFSS  F9E.4
+3624:  BRA    3622
+3626:  MOVWF  FAD
+3628:  MOVLW  0A
+362A:  BTFSS  F9E.4
+362C:  BRA    362A
+362E:  MOVWF  FAD
+....................      printf("Umidade do Solo= %2.1f %s \r\n", RHsolo,"%"); 
+3630:  MOVLW  1E
+3632:  MOVWF  FF6
+3634:  MOVLW  05
+3636:  MOVWF  FF7
+3638:  MOVLW  11
+363A:  MOVWF  6D
+363C:  CALL   13D4
+3640:  MOVLW  01
+3642:  MOVWF  FE9
+3644:  MOVFF  28,70
+3648:  MOVFF  27,6F
+364C:  MOVFF  26,6E
+3650:  MOVFF  25,6D
+3654:  MOVWF  71
+3656:  CALL   13F4
+365A:  MOVLW  20
+365C:  BTFSS  F9E.4
+365E:  BRA    365C
+3660:  MOVWF  FAD
+3662:  MOVLW  3C
+3664:  MOVWF  FF6
+3666:  MOVLW  05
+3668:  MOVWF  FF7
+366A:  CALL   157C
+366E:  MOVLW  20
+3670:  BTFSS  F9E.4
+3672:  BRA    3670
+3674:  MOVWF  FAD
+3676:  MOVLW  0D
+3678:  BTFSS  F9E.4
+367A:  BRA    3678
+367C:  MOVWF  FAD
+367E:  MOVLW  0A
+3680:  BTFSS  F9E.4
+3682:  BRA    3680
+3684:  MOVWF  FAD
+....................      comando=0;} 
+3686:  CLRF   19
+....................       
+....................    if(comando==2) 
+3688:  MOVF   19,W
+368A:  SUBLW  02
+368C:  BNZ   369E
+....................    {mododoaquecedor=1; 
+368E:  BSF    24.0
+....................     printf("Aquecedor foi ligado manualmente \r\n"); 
+3690:  MOVLW  3E
+3692:  MOVWF  FF6
+3694:  MOVLW  05
+3696:  MOVWF  FF7
+3698:  CALL   157C
+....................     comando=0;} 
+369C:  CLRF   19
+....................      
+....................    if(comando==3) 
+369E:  MOVF   19,W
+36A0:  SUBLW  03
+36A2:  BNZ   36B4
+....................    {mododoaquecedor=0; 
+36A4:  BCF    24.0
+....................     printf("Aquecedor foi para modo automatico \r\n"); 
+36A6:  MOVLW  62
+36A8:  MOVWF  FF6
+36AA:  MOVLW  05
+36AC:  MOVWF  FF7
+36AE:  CALL   157C
+....................     comando=0;} 
+36B2:  CLRF   19
+....................      
+....................     if(comando==4) 
+36B4:  MOVF   19,W
+36B6:  SUBLW  04
+36B8:  BNZ   36CA
+....................    {mododoresfriador=1; 
+36BA:  BSF    24.1
+....................     printf("Resfriador foi ligado manualmente \r\n"); 
+36BC:  MOVLW  88
+36BE:  MOVWF  FF6
+36C0:  MOVLW  05
+36C2:  MOVWF  FF7
+36C4:  CALL   157C
+....................     comando=0;} 
+36C8:  CLRF   19
+....................      
+....................    if(comando==5) 
+36CA:  MOVF   19,W
+36CC:  SUBLW  05
+36CE:  BNZ   36E0
+....................    {mododoresfriador=0; 
+36D0:  BCF    24.1
+....................     printf("Resfriador foi para modo automatico \r\n"); 
+36D2:  MOVLW  AE
+36D4:  MOVWF  FF6
+36D6:  MOVLW  05
+36D8:  MOVWF  FF7
+36DA:  CALL   157C
+....................     comando=0;} 
+36DE:  CLRF   19
+....................      
+....................     if(comando==6) 
+36E0:  MOVF   19,W
+36E2:  SUBLW  06
+36E4:  BNZ   36F6
+....................    {mododoumidificador=1; 
+36E6:  BSF    24.6
+....................     printf("Umidificador foi ligado manualmente \r\n"); 
+36E8:  MOVLW  D6
+36EA:  MOVWF  FF6
+36EC:  MOVLW  05
+36EE:  MOVWF  FF7
+36F0:  CALL   157C
+....................     comando=0;} 
+36F4:  CLRF   19
+....................      
+....................    if(comando==7) 
+36F6:  MOVF   19,W
+36F8:  SUBLW  07
+36FA:  BNZ   370C
+....................    {mododoumidificador=0; 
+36FC:  BCF    24.6
+....................     printf("Umidificador foi para modo automatico \r\n"); 
+36FE:  MOVLW  FE
+3700:  MOVWF  FF6
+3702:  MOVLW  05
+3704:  MOVWF  FF7
+3706:  CALL   157C
+....................     comando=0;} 
+370A:  CLRF   19
+....................      
+....................     if(comando==8) 
+370C:  MOVF   19,W
+370E:  SUBLW  08
+3710:  BNZ   372C
+....................    {mododabomba=1; 
+3712:  MOVLW  01
+3714:  MOVWF  35
+....................     printf("Irrigador foi ligado manualmente \r\n"); 
+3716:  MOVLW  28
+3718:  MOVWF  FF6
+371A:  MOVLW  06
+371C:  MOVWF  FF7
+371E:  CALL   157C
+....................     tempo_on=0; 
+3722:  CLRF   2A
+3724:  CLRF   29
+....................     tempo_off=0; 
+3726:  CLRF   2C
+3728:  CLRF   2B
+....................     comando=0;} 
+372A:  CLRF   19
+....................      
+....................    if(comando==9) 
+372C:  MOVF   19,W
+372E:  SUBLW  09
+3730:  BNZ   3742
+....................    {mododabomba=0; 
+3732:  CLRF   35
+....................     printf("Irrigador foi para modo automatico \r\n"); 
+3734:  MOVLW  4C
+3736:  MOVWF  FF6
+3738:  MOVLW  06
+373A:  MOVWF  FF7
+373C:  CALL   157C
+....................     comando=0;} 
+3740:  CLRF   19
+....................      
+....................     if(comando==10) 
+3742:  MOVF   19,W
+3744:  SUBLW  0A
+3746:  BTFSS  FD8.2
+3748:  BRA    38BC
+....................     {printf("Temperatura minima registrada= %u graus \r\n",      Temperaturaminimaregistrada); 
+374A:  MOVLW  72
+374C:  MOVWF  FF6
+374E:  MOVLW  06
+3750:  MOVWF  FF7
+3752:  MOVLW  1F
+3754:  MOVWF  6D
+3756:  CALL   13D4
+375A:  MOVFF  22,6D
+375E:  MOVLW  1B
+3760:  MOVWF  6E
+3762:  CALL   159E
+3766:  MOVLW  93
+3768:  MOVWF  FF6
+376A:  MOVLW  06
+376C:  MOVWF  FF7
+376E:  MOVLW  09
+3770:  MOVWF  6D
+3772:  CALL   13D4
+....................      printf("Temperatura maxima registrada = %u graus \r\n",     Temperaturamaximaregistrada); 
+3776:  MOVLW  9E
+3778:  MOVWF  FF6
+377A:  MOVLW  06
+377C:  MOVWF  FF7
+377E:  MOVLW  20
+3780:  MOVWF  6D
+3782:  CALL   13D4
+3786:  MOVFF  23,6D
+378A:  MOVLW  1B
+378C:  MOVWF  6E
+378E:  CALL   159E
+3792:  MOVLW  C0
+3794:  MOVWF  FF6
+3796:  MOVLW  06
+3798:  MOVWF  FF7
+379A:  MOVLW  09
+379C:  MOVWF  6D
+379E:  CALL   13D4
+....................      printf("Umidade do Ar maxima registrada= %u %s \r\n",    RHarminimoregistrado,"%"); 
+37A2:  MOVLW  CA
+37A4:  MOVWF  FF6
+37A6:  MOVLW  06
+37A8:  MOVWF  FF7
+37AA:  MOVLW  21
+37AC:  MOVWF  6D
+37AE:  CALL   13D4
+37B2:  MOVFF  42,6D
+37B6:  MOVLW  1B
+37B8:  MOVWF  6E
+37BA:  CALL   159E
+37BE:  MOVLW  20
+37C0:  BTFSS  F9E.4
+37C2:  BRA    37C0
+37C4:  MOVWF  FAD
+37C6:  MOVLW  F4
+37C8:  MOVWF  FF6
+37CA:  MOVLW  06
+37CC:  MOVWF  FF7
+37CE:  CALL   157C
+37D2:  MOVLW  20
+37D4:  BTFSS  F9E.4
+37D6:  BRA    37D4
+37D8:  MOVWF  FAD
+37DA:  MOVLW  0D
+37DC:  BTFSS  F9E.4
+37DE:  BRA    37DC
+37E0:  MOVWF  FAD
+37E2:  MOVLW  0A
+37E4:  BTFSS  F9E.4
+37E6:  BRA    37E4
+37E8:  MOVWF  FAD
+....................      printf("Umidade do Ar minima registrada= %u %s  \r\n",   RHarmaximoregistrado,"%"); 
+37EA:  MOVLW  F6
+37EC:  MOVWF  FF6
+37EE:  MOVLW  06
+37F0:  MOVWF  FF7
+37F2:  MOVLW  21
+37F4:  MOVWF  6D
+37F6:  CALL   13D4
+37FA:  MOVFF  43,6D
+37FE:  MOVLW  1B
+3800:  MOVWF  6E
+3802:  CALL   159E
+3806:  MOVLW  20
+3808:  BTFSS  F9E.4
+380A:  BRA    3808
+380C:  MOVWF  FAD
+380E:  MOVLW  22
+3810:  MOVWF  FF6
+3812:  MOVLW  07
+3814:  MOVWF  FF7
+3816:  CALL   157C
+381A:  MOVLW  1C
+381C:  MOVWF  FF6
+381E:  MOVLW  07
+3820:  MOVWF  FF7
+3822:  MOVLW  04
+3824:  MOVWF  6D
+3826:  CALL   13D4
+....................      printf("Umidade so Solo minima registrada = %u %s \r\n", RHsolominimoregistrado,"%"); 
+382A:  MOVLW  24
+382C:  MOVWF  FF6
+382E:  MOVLW  07
+3830:  MOVWF  FF7
+3832:  MOVLW  24
+3834:  MOVWF  6D
+3836:  CALL   13D4
+383A:  MOVFF  32,6D
+383E:  MOVLW  1B
+3840:  MOVWF  6E
+3842:  CALL   159E
+3846:  MOVLW  20
+3848:  BTFSS  F9E.4
+384A:  BRA    3848
+384C:  MOVWF  FAD
+384E:  MOVLW  52
+3850:  MOVWF  FF6
+3852:  MOVLW  07
+3854:  MOVWF  FF7
+3856:  CALL   157C
+385A:  MOVLW  20
+385C:  BTFSS  F9E.4
+385E:  BRA    385C
+3860:  MOVWF  FAD
+3862:  MOVLW  0D
+3864:  BTFSS  F9E.4
+3866:  BRA    3864
+3868:  MOVWF  FAD
+386A:  MOVLW  0A
+386C:  BTFSS  F9E.4
+386E:  BRA    386C
+3870:  MOVWF  FAD
+....................      printf("Umidade do Solo maxima registrada= %u %s \r\n",  RHsolomaximoregistrado,"%"); 
+3872:  MOVLW  54
+3874:  MOVWF  FF6
+3876:  MOVLW  07
+3878:  MOVWF  FF7
+387A:  MOVLW  23
+387C:  MOVWF  6D
+387E:  CALL   13D4
+3882:  MOVFF  33,6D
+3886:  MOVLW  1B
+3888:  MOVWF  6E
+388A:  CALL   159E
+388E:  MOVLW  20
+3890:  BTFSS  F9E.4
+3892:  BRA    3890
+3894:  MOVWF  FAD
+3896:  MOVLW  80
+3898:  MOVWF  FF6
+389A:  MOVLW  07
+389C:  MOVWF  FF7
+389E:  CALL   157C
+38A2:  MOVLW  20
+38A4:  BTFSS  F9E.4
+38A6:  BRA    38A4
+38A8:  MOVWF  FAD
+38AA:  MOVLW  0D
+38AC:  BTFSS  F9E.4
+38AE:  BRA    38AC
+38B0:  MOVWF  FAD
+38B2:  MOVLW  0A
+38B4:  BTFSS  F9E.4
+38B6:  BRA    38B4
+38B8:  MOVWF  FAD
+....................      comando=0;} 
+38BA:  CLRF   19
+....................      
+....................     if(comando==11) 
+38BC:  MOVF   19,W
+38BE:  SUBLW  0B
+38C0:  BNZ   38F8
+....................     {printf("Registro de Alertas= %d \r\n", memoriadosErros); 
+38C2:  MOVLW  82
+38C4:  MOVWF  FF6
+38C6:  MOVLW  07
+38C8:  MOVWF  FF7
+38CA:  MOVLW  15
+38CC:  MOVWF  6D
+38CE:  CALL   13D4
+38D2:  MOVFF  64,6D
+38D6:  MOVLW  18
+38D8:  MOVWF  6E
+38DA:  CALL   160E
+38DE:  MOVLW  20
+38E0:  BTFSS  F9E.4
+38E2:  BRA    38E0
+38E4:  MOVWF  FAD
+38E6:  MOVLW  0D
+38E8:  BTFSS  F9E.4
+38EA:  BRA    38E8
+38EC:  MOVWF  FAD
+38EE:  MOVLW  0A
+38F0:  BTFSS  F9E.4
+38F2:  BRA    38F0
+38F4:  MOVWF  FAD
+....................      comando=0;} 
+38F6:  CLRF   19
+....................       
+....................     if(somadosErros!=0) 
+38F8:  MOVF   63,F
+38FA:  BZ    3932
+....................     {controleserial++; 
+38FC:  INCF   5F,F
+....................      if(controleserial>100) 
+38FE:  MOVF   5F,W
+3900:  SUBLW  64
+3902:  BC    3932
+....................      {printf("ALERTA! Algo está errado. Codigo: %d\r\n", somadosErros); 
+3904:  MOVLW  9E
+3906:  MOVWF  FF6
+3908:  MOVLW  07
+390A:  MOVWF  FF7
+390C:  MOVLW  22
+390E:  MOVWF  6D
+3910:  CALL   13D4
+3914:  MOVFF  63,6D
+3918:  MOVLW  18
+391A:  MOVWF  6E
+391C:  CALL   160E
+3920:  MOVLW  0D
+3922:  BTFSS  F9E.4
+3924:  BRA    3922
+3926:  MOVWF  FAD
+3928:  MOVLW  0A
+392A:  BTFSS  F9E.4
+392C:  BRA    392A
+392E:  MOVWF  FAD
+....................       controleserial=0;} 
+3930:  CLRF   5F
+....................     }  
+....................      
+....................   }//true 
+3932:  GOTO   1948
+.................... }//main 
+....................  
+3936:  SLEEP 
+
+Configuration Fuses:
+   Word  1: 2200   HS NOOSCSEN
+   Word  2: 0E0C   PUT NOBROWNOUT BORV20 NOWDT WDT128
+   Word  3: 0100   CCP2C1
+   Word  4: 0081   STVREN NOLVP NODEBUG
+   Word  5: C000   PROTECT NOCPB NOCPD
+   Word  6: E00F   NOWRT NOWRTC NOWRTB NOWRTD
+   Word  7: 400F   NOEBTR NOEBTRB

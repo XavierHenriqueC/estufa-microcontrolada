@@ -1,0 +1,24 @@
+if(erro==2&&controledestring2==0&&controle3<=30&&controledestring==0)
+      {
+       lcd_escreve ('\f');
+       lcd_pos_xy(2,1);
+       printf (lcd_escreve,"NIVEL DE AGUA");
+       lcd_pos_xy(6,2);
+       printf (lcd_escreve,"BAIXO       ");
+      }
+      if(erro==3&&controledestring2==0&&controle3<=30&&controledestring==0)
+      {
+       lcd_escreve ('\f');
+       lcd_pos_xy(1,1);
+       printf (lcd_escreve,"VERIFICAR SENSOR");
+       lcd_pos_xy(1,2);
+       printf (lcd_escreve,"  TEMPERATURA   ");
+      }
+      if(erro==4&&controledestring2==0&&controle3<=30&&controledestring==0)
+      {
+       lcd_escreve ('\f');
+       lcd_pos_xy(1,1);
+       printf (lcd_escreve,"VERIFICAR SENSOR");
+       lcd_pos_xy(1,2);
+       printf (lcd_escreve," UMIDADE DO AR  ");
+      }
